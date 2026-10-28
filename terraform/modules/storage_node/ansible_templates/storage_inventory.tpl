@@ -4,7 +4,7 @@
 
 [storage]
 %{ for _, node in nodes ~}
-${node.ip} ansible_user=${node.user}
+${node.ip} ansible_user=${node.user} cluster_admin_user=${node.user} cluster_admin_home=/home/${node.user}
 %{ endfor ~}
 
 # Self-contained connection vars so the storage nodes can be configured even

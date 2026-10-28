@@ -1,0 +1,17 @@
+# Example overrides. Copy to inventory.d/group_vars/all.yml and keep only what
+# you change; every value below is already a role default.
+
+# k3s_server / k3s_agent
+# k3s_api_port: 6443
+# k3s_install_script_url: "https://get.k3s.io"
+
+# k3s_server: Cilium values from a file on the controller (relative paths are
+# looked up in roles/k3s_server/files/) or from a URL, which wins when set.
+# cilium_chart_version: "1.19.1"
+# cilium_values_file: "{{ inventory_dir }}/../my-cilium-values.yaml"
+# cilium_values_url: "https://example.com/cilium-values.yaml"
+
+# common
+# allow_reboot_on_update: true
+# common_extra_packages: [vim]
+# ssh_hardening_enabled: true

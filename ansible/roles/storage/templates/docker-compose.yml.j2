@@ -3,10 +3,16 @@ services:
     image: {{ seaweedfs_image }}
     container_name: seaweedfs
     restart: unless-stopped
-    ports:
-      - "{{ seaweedfs_s3_port }}:8333"
-      - "{{ seaweedfs_master_port }}:9333"
-      - "{{ seaweedfs_filer_port }}:8888"
+    # Host networking so firewalld filters SeaweedFS like any host service:
+    # ports published by Docker are DNATed through FORWARD and skip the zone's
+    # rules. -ip makes the master advertise the VM's address, not a Docker one.
+    network_mode: host
     volumes:
       - {{ seaweedfs_data_dir }}:/data
-    command: server -s3 -dir=/data
+    command: >-
+      server -dir=/data
+      -ip={{ seaweedfs_advertise_ip }} -ip.bind=0.0.0.0
+      -master.port={{ seaweedfs_master_port }}
+      -volume.port={{ seaweedfs_volume_port }}
+      -filer -filer.port={{ seaweedfs_filer_port }}
+      -s3 -s3.port={{ seaweedfs_s3_port }}

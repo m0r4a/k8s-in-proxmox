@@ -8,3 +8,8 @@ ssh_login_grace_time: 30
 ssh_permit_root_login: "no"
 ssh_password_authentication: "no"
 ssh_hardening_enabled: true
+
+# Reboot after package changes (all hosts at once). If you set this to false,
+# reboot by hand after a kernel update: kernel-modules-extra only ships modules
+# for the new kernel, and k8s_prep/storage fail to load br_netfilter until then.
+allow_reboot_on_update: true

@@ -1,3 +1,15 @@
+- name: Check Kubernetes distribution
+  hosts: k8s_cluster
+  gather_facts: false
+  tasks:
+    # "none" prepares the nodes (common, k8s_prep) and installs no Kubernetes.
+    - name: Fail on a distribution without roles
+      ansible.builtin.assert:
+        that: k8s_distribution in ["k3s", "none"]
+        fail_msg: "k8s_distribution={{ k8s_distribution }} has no roles yet (supported: k3s, none)."
+      run_once: true
+      tags: [always]
+
 - name: Common node preparation
   hosts: all
   become: true
@@ -6,13 +18,13 @@
     - role: common
       tags: [common]
 
-- name: k3s node preparation
-  hosts: k3s_cluster
+- name: Kubernetes node preparation
+  hosts: k8s_cluster
   become: true
   gather_facts: true
   roles:
-    - role: k3s
-      tags: [k3s, prep]
+    - role: k8s_prep
+      tags: [prep]
 
 - name: Bootstrap k3s control plane
   hosts: control_plane
@@ -20,6 +32,7 @@
   gather_facts: true
   roles:
     - role: k3s_server
+      when: k8s_distribution == "k3s"
       tags: [k3s, server]
 
 - name: Join k3s workers
@@ -28,6 +41,7 @@
   gather_facts: true
   roles:
     - role: k3s_agent
+      when: k8s_distribution == "k3s"
       tags: [k3s, agent]
 
 - name: Configure storage nodes

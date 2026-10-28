@@ -1,6 +1,28 @@
 k3s_binary: "/usr/local/bin/k3s"
 k3s_token_file: "/var/lib/rancher/k3s/server/node-token"
 k3s_kubeconfig_src: "/etc/rancher/k3s/k3s.yaml"
+k3s_install_script_url: "https://get.k3s.io"
+k3s_api_port: 6443
+
+# Tools the control plane needs: the install scripts use curl, openssl and
+# git, and shell_config.yml sets up bash completion.
+k3s_server_packages:
+  - git
+  - bash-completion
+  - openssl
+  - curl
+
+cilium_chart_version: "1.19.1"
+# Values passed to the Cilium chart: a file on the Ansible controller (a
+# relative path is looked up in this role's files/), or a URL, which wins
+# when set.
+cilium_values_file: "cilium-values.yaml"
+cilium_values_url: ""
+cilium_cli_stable_url: "https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt"
+hubble_cli_stable_url: "https://raw.githubusercontent.com/cilium/hubble/main/stable.txt"
+
+helm_install_script_url: "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
+flux_install_script_url: "https://fluxcd.io/install.sh"
 
 helm_binary: "/usr/local/bin/helm"
 cilium_cli_binary: "/usr/local/bin/cilium"

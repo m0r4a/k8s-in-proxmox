@@ -9,13 +9,12 @@ scenarios.
 ### Getting started (one-time setup)
 
 The `proxmox_setup.sh` script requires root SSH access to the PVE host
-because it runs `pveum`, `qm`, and `pvesm` commands. After setup,
-Terraform uses the API token for VM management and root SSH for snippet
-uploads (the bpg provider writes to `/var/lib/vz/snippets/` which
-requires root).
+because it runs `pveum`, `qm`, `pvesm` and `useradd`. After setup,
+Terraform uses the API token for VM management and the restricted
+`tfprov` SSH user for snippet uploads.
 
 ```bash
-# Default: PVE user/token only (template via Terraform module)
+# Default: PVE role/user/token + tfprov SSH user (template via Terraform module)
 cd terraform/scripts
 ./proxmox_setup.sh --host 192.168.1.2 --ssh-key ~/.ssh/id_ed25519
 
@@ -27,23 +26,49 @@ The script:
 1. Creates a PVE role (`TerraformProv`) with minimum VM management privileges
 2. Creates a PVE user (`terraform-prov@pve`) with that role
 3. Generates an API token for the user
-4. Optionally (with `--create-template`): downloads Rocky 10, creates the
+4. Adds the `snippets` and `import` content types to the `local` storage,
+   keeping the ones it already has, and creates their directories (the
+   provider's `sudo tee` upload does not create them)
+5. Creates the `tfprov` SSH user with your public key and a limited
+   sudoers file (skip with `--skip-svc-user`)
+6. Optionally (with `--create-template`): downloads Rocky 10, creates the
    template VM, and creates the qemu-guest-agent snippet
 
-**The script does NOT modify SSH settings on your PVE host.** Your root
-SSH access, password authentication settings, and sshd_config are left
+The script does not modify SSH settings on your PVE host. Your root SSH
+access, password authentication settings, and sshd_config are left
 untouched.
 
-### Why root SSH is required for Terraform
+### The tfprov SSH user
 
-The bpg provider uses SSH to upload cloud-init snippets to the PVE host.
-The snippets directory (`/var/lib/vz/snippets/`) is owned by root, and
-the provider does not support sudo escalation for this operation. This
-means `proxmox_ssh_user` must be `root` in your `terraform.tfvars`.
+The Proxmox API cannot upload snippets, so the bpg provider writes the
+`vm_template` cloud-init snippet over SSH. Everything else (create, clone,
+start, stop, configure, image download, disk import through `import_from`)
+goes through the API token.
 
-The API token (not SSH) is used for all other VM management operations
-(create, clone, start, stop, configure). SSH is only used for snippet
-uploads.
+Terraform connects as `tfprov` (`proxmox_ssh_user`, the default in both
+roots). When its SSH user is not root, the provider runs commands with
+`sudo`, so the script writes `/etc/sudoers.d/tfprov` with the minimal rules
+from the bpg docs:
+
+```
+tfprov ALL=(root) NOPASSWD: /usr/sbin/pvesm apiinfo
+tfprov ALL=(root) NOPASSWD: /usr/bin/tee ^/var/lib/vz/snippets/[a-zA-Z0-9_][a-zA-Z0-9_.-]*$
+```
+
+`tfprov` can only report the storage API version and write files directly
+inside the snippets directory. It does not get `qm` or `pvesm` in general,
+which would be equivalent to root. The regex rule needs sudo 1.9.10 or newer
+(PVE 8 ships it), and the script installs `sudo` if the host lacks it. The
+file is checked with `visudo -cf` before it is installed. To check it by
+hand:
+
+```bash
+ssh tfprov@<pve-host> sudo pvesm apiinfo   # prints APIVER, no password prompt
+```
+
+With `--skip-svc-user` no user is created and you must set
+`proxmox_ssh_user = "root"`. In a multi-node Proxmox cluster, run the script
+against every node so each one has `tfprov`.
 
 ### PVE API permissions
 
@@ -64,13 +89,13 @@ These are the minimum required for the bpg provider to manage VMs. The
 token has privilege separation disabled (`--privsep 0`) so it inherits
 all user permissions.
 
-## VMs (k3s nodes and storage)
+## VMs (cluster nodes and storage)
 
 ### SSH hardening
 
 Applied by the `common` ansible role on all VMs (not the PVE host).
 Controlled by `ssh_hardening_enabled: true` (default). Set to `false` in
-`group_vars/all.yml` to disable.
+`ansible/inventory.d/group_vars/all.yml` to disable.
 
 | Setting | Default | Why |
 | --- | --- | --- |
@@ -94,7 +119,7 @@ If SSH hardening locks you out of a VM:
 
 To disable SSH hardening entirely:
 ```yaml
-# ansible/group_vars/all.yml
+# ansible/inventory.d/group_vars/all.yml
 ssh_hardening_enabled: false
 ```
 
@@ -111,7 +136,7 @@ sudoers file (`90-cloud-init-users`) is removed to prevent duplicates.
 Optional, disabled by default. To enable:
 
 ```yaml
-# ansible/group_vars/storage.yml
+# ansible/inventory.d/group_vars/storage.yml
 seaweedfs_firewall_enabled: true
 seaweedfs_allowed_cidr: "10.0.0.0/24"  # your cluster subnet
 ```
@@ -123,13 +148,24 @@ ports to the specified CIDR:
 | --- | --- | --- |
 | 22 | SSH | Any (key-based only) |
 | 8333 | SeaweedFS S3 | `seaweedfs_allowed_cidr` only |
-| 9333 | SeaweedFS Master | `seaweedfs_allowed_cidr` only |
-| 8888 | SeaweedFS Filer | `seaweedfs_allowed_cidr` only |
+| 9333, 19333 | SeaweedFS Master (HTTP, gRPC) | `seaweedfs_allowed_cidr` only |
+| 8888, 18888 | SeaweedFS Filer (HTTP, gRPC) | `seaweedfs_allowed_cidr` only |
+| 8080, 18080 | SeaweedFS Volume (HTTP, gRPC) | `seaweedfs_allowed_cidr` only |
+| anything else | | Rejected by the zone |
 
-**Set `seaweedfs_allowed_cidr` to your actual cluster subnet.** The
-default empty value means the firewall task won't run (it's guarded by
-`seaweedfs_firewall_enabled`). If you enable the firewall but forget
-the CIDR, the task will fail with a clear error.
+SeaweedFS runs with host networking. Ports published by Docker are DNATed
+through the FORWARD chain and never reach the zone's rules, so with
+published ports these restrictions would not apply. With host networking
+the ports are ordinary host ports and firewalld filters them. The master
+advertises the VM's own address (`seaweedfs_advertise_ip`, the default IPv4
+address) so clients outside the VM can reach the volume server.
+
+With the firewall disabled every SeaweedFS port is reachable from anywhere.
+
+Set `seaweedfs_allowed_cidr` to your actual cluster subnet. With the
+firewall disabled (the default) its empty default is never used. With the
+firewall enabled, the role checks the value before touching firewalld and
+stops with an error naming the variable if it is empty or not an IPv4 CIDR.
 
 ## Recommendations for production
 

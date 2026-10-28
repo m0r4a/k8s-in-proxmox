@@ -1,3 +1,9 @@
+- name: Install control plane tools
+  ansible.builtin.dnf:
+    name: "{{ k3s_server_packages }}"
+    state: present
+  tags: [k3s-server, packages]
+
 - name: Install k3s server
   ansible.builtin.include_tasks: install.yml
   tags: [k3s-server, install]

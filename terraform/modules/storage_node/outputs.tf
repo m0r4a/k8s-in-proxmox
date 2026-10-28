@@ -4,6 +4,6 @@ output "vm_ids" {
 }
 
 output "storage_node_ips" {
-  description = "IPs of the storage-role nodes."
+  description = "IPs of the storage nodes."
   value       = [for _, node in local.nodes_normalized : node.ip]
 }

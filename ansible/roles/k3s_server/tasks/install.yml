@@ -5,14 +5,17 @@
 
 - name: Install k3s server
   ansible.builtin.shell: |
+    set -o pipefail
     curl -sfL {{ k3s_install_script_url }} | \
       INSTALL_K3S_EXEC="server \
         --flannel-backend=none \
         --disable=servicelb \
         --disable-network-policy \
-        --cluster-cidr={{ k3s_cluster_cidr }} \
-        --service-cidr={{ k3s_service_cidr }}" \
+        --cluster-cidr={{ k8s_cluster_cidr }} \
+        --service-cidr={{ k8s_service_cidr }}" \
       sh -
+  args:
+    executable: /bin/bash
   when: not _k3s_binary_stat.stat.exists
   changed_when: true
 

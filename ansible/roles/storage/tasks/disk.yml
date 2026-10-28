@@ -1,7 +1,12 @@
+# lsblk lists zram, loop and network block devices as TYPE=disk too.
 - name: Find the data disk (first disk that is not the root disk)
   ansible.builtin.shell: |
-    root_disk=$(findmnt -no SOURCE / | sed 's|/dev/||' | sed 's|[0-9]*$||' | sed 's|p$||')
-    lsblk -ndo NAME,TYPE | awk '$2=="disk" && $1!="'"$root_disk"'"{print $1; exit}'
+    set -o pipefail
+    root_disk=$(lsblk -nslo NAME,TYPE "$(findmnt -nvo SOURCE /)" | awk '$2=="disk"{print $1; exit}')
+    [ -n "$root_disk" ] || { echo "cannot find the root disk" >&2; exit 1; }
+    lsblk -ndo NAME,TYPE | awk -v root="$root_disk" '$2=="disk" && $1!=root && $1!~/^(zram|loop|nbd|rbd)/{print $1; exit}'
+  args:
+    executable: /bin/bash
   register: _data_disk
   changed_when: false
 

@@ -1,0 +1,8 @@
+k8s_prep_kernel_modules:
+  - overlay
+  - br_netfilter
+
+k8s_prep_sysctl_params:
+  net.bridge.bridge-nf-call-iptables: "1"
+  net.bridge.bridge-nf-call-ip6tables: "1"
+  net.ipv4.ip_forward: "1"

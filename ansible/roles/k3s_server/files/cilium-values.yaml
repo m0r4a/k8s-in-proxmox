@@ -1,0 +1,36 @@
+# Default Cilium values for the k3s cluster. cilium_deploy.yml sets
+# k8sServiceHost, k8sServicePort and the IPAM pod CIDR from the inventory, so
+# they are not repeated here. Override the whole file with cilium_values_file
+# or cilium_values_url.
+ipam:
+  mode: "cluster-pool"
+
+operator:
+  replicas: 1
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+    prometheus:
+      enabled: true
+      serviceMonitor:
+        enabled: false
+  ui:
+    enabled: true
+  metrics:
+    enabled: [dns, drop, tcp, flow, icmp, http]
+
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+
+bpf:
+  masquerade: true
+
+kubeProxyReplacement: true

@@ -24,14 +24,14 @@ resource "proxmox_virtual_environment_file" "vendor_cloud_config" {
 resource "proxmox_download_file" "cloud_image" {
   count = var.image_file_id == null ? 1 : 0
 
-  content_type        = "iso"
+  content_type        = "import"
   datastore_id        = "local"
   node_name           = var.proxmox_node
   overwrite           = true
   overwrite_unmanaged = true
 
   url       = var.image_url
-  file_name = "${var.template_name}.img"
+  file_name = "${var.template_name}.qcow2"
 }
 
 resource "proxmox_virtual_environment_vm" "template" {
@@ -64,7 +64,7 @@ resource "proxmox_virtual_environment_vm" "template" {
 
   disk {
     datastore_id = var.datastore_id
-    file_id      = local.image_file_id
+    import_from  = local.image_file_id
     interface    = "scsi0"
     iothread     = true
     discard      = "on"

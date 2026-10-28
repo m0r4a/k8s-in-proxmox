@@ -18,7 +18,7 @@
   register: _dnf_install
   tags: [packages]
 
-- name: Reboot if kernel or modules were updated
+- name: Reboot after package changes
   ansible.builtin.reboot:
     reboot_timeout: 300
     post_reboot_delay: 20

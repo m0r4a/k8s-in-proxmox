@@ -52,13 +52,13 @@ variable "image_url" {
 }
 
 variable "image_file_id" {
-  description = "File ID of an existing cloud image on Proxmox (e.g. \"local:iso/rocky10.img\"). Set image_url to null to use this."
+  description = "File ID of an existing cloud image in a storage with the import content type (e.g. \"local:import/rocky10.qcow2\"). Set image_url to null to use this."
   type        = string
   default     = null
 
   validation {
-    condition     = var.image_file_id == null || can(regex("^[a-zA-Z0-9_-]+:.+", var.image_file_id))
-    error_message = "image_file_id must be in the format \"datastore:path\" (e.g. \"local:iso/rocky10.img\") or null."
+    condition     = var.image_file_id == null || can(regex("^[a-zA-Z0-9_-]+:import/.+", var.image_file_id))
+    error_message = "image_file_id must be an import volume, \"datastore:import/file\" (e.g. \"local:import/rocky10.qcow2\"), or null."
   }
 }
 
@@ -96,7 +96,7 @@ variable "disk_size_gb" {
 }
 
 variable "vm_user" {
-  description = "Cloud-init username created on the template. Inherited by every clone."
+  description = "Cloud-init username on the template. Clones made by k8s_cluster and storage_node set their own."
   type        = string
 
   validation {

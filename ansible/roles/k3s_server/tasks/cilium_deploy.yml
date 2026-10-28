@@ -9,6 +9,15 @@
   changed_when: false
   failed_when: false
 
+- name: Copy Cilium values to the control plane
+  ansible.builtin.copy:
+    src: "{{ cilium_values_file }}"
+    dest: "{{ cluster_admin_home }}/cilium-values.yaml"
+    owner: "{{ cluster_admin_user }}"
+    group: "{{ cluster_admin_user }}"
+    mode: "0644"
+  when: cilium_values_url | length == 0
+
 - name: Install Cilium via Helm
   ansible.builtin.command:
     cmd: >-
@@ -16,9 +25,10 @@
       --version {{ cilium_chart_version }}
       --namespace kube-system
       --create-namespace
-      -f {{ cilium_values_url }}
-      --set k8sServiceHost={{ k3s_control_plane_ip }}
+      -f {{ cilium_values_url if cilium_values_url | length > 0 else cluster_admin_home ~ '/cilium-values.yaml' }}
+      --set k8sServiceHost={{ k8s_control_plane_ip }}
       --set k8sServicePort={{ k3s_api_port }}
+      --set ipam.operator.clusterPoolIPv4PodCIDRList={{ '{' ~ k8s_cluster_cidr ~ '}' }}
       --set hubble.metrics.serviceMonitor.enabled=false
       --wait
   become: true

@@ -26,9 +26,9 @@ variable "proxmox_insecure" {
 }
 
 variable "proxmox_ssh_user" {
-  description = "SSH user for the Proxmox node."
+  description = "SSH user the provider connects to the Proxmox node as (snippet uploads). proxmox_setup.sh creates tfprov with the sudo rules it needs."
   type        = string
-  default     = "root"
+  default     = "tfprov"
 
   validation {
     condition     = length(var.proxmox_ssh_user) > 0

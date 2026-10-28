@@ -1,3 +1,12 @@
+- name: Check seaweedfs_allowed_cidr
+  ansible.builtin.assert:
+    that: seaweedfs_allowed_cidr is match('^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$')
+    fail_msg: >-
+      seaweedfs_firewall_enabled is true but seaweedfs_allowed_cidr is
+      "{{ seaweedfs_allowed_cidr }}". Set it to the cluster subnet in
+      inventory.d/group_vars/storage.yml (e.g. "10.0.0.0/24").
+    quiet: true
+
 - name: Install firewalld
   ansible.builtin.dnf:
     name: firewalld
@@ -16,16 +25,13 @@
     state: enabled
     immediate: true
 
-- name: Restrict SeaweedFS ports to cluster CIDR
+- name: Allow SeaweedFS ports from seaweedfs_allowed_cidr
   ansible.posix.firewalld:
     rich_rule: "rule family=ipv4 source address={{ seaweedfs_allowed_cidr }} port port={{ item }} protocol=tcp accept"
     permanent: true
     state: enabled
     immediate: true
-  loop:
-    - "{{ seaweedfs_s3_port }}"
-    - "{{ seaweedfs_master_port }}"
-    - "{{ seaweedfs_filer_port }}"
+  loop: "{{ seaweedfs_firewall_ports }}"
 
 - name: Drop SeaweedFS ports from other sources
   ansible.posix.firewalld:
@@ -33,7 +39,4 @@
     permanent: true
     state: disabled
     immediate: true
-  loop:
-    - "{{ seaweedfs_s3_port }}"
-    - "{{ seaweedfs_master_port }}"
-    - "{{ seaweedfs_filer_port }}"
+  loop: "{{ seaweedfs_firewall_ports }}"

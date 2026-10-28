@@ -52,7 +52,7 @@ variable "cluster_name" {
 }
 
 variable "vm_user" {
-  description = "Cloud-init username for the VMs. Inherited from the template when omitted on a node."
+  description = "Default cloud-init username for the VMs. Overridable per node."
   type        = string
 
   validation {

@@ -1,0 +1,23 @@
+# terraform-docs config shared by the modules and examples.
+# Regenerate from the terraform/ directory:
+#   for d in modules/* examples/*; do terraform-docs -c .terraform-docs.yml "$d"; done
+formatter: markdown table
+
+output:
+  file: README.md
+  mode: inject
+
+sort:
+  enabled: true
+  by: required
+
+settings:
+  anchor: false
+  default: true
+  escape: false
+  hide-empty: true
+  html: false
+  indent: 2
+  required: true
+  sensitive: true
+  type: true

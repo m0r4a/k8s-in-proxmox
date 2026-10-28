@@ -17,11 +17,14 @@
 
 - name: Install k3s agent
   ansible.builtin.shell: |
+    set -o pipefail
     curl -sfL {{ k3s_install_script_url }} | \
       INSTALL_K3S_EXEC="agent \
-        --server https://{{ k3s_control_plane_ip }}:{{ k3s_api_port }} \
+        --server https://{{ k8s_control_plane_ip }}:{{ k3s_api_port }} \
         --token {{ k3s_node_token }}" \
       sh -s -
+  args:
+    executable: /bin/bash
   when: not _k3s_agent_stat.stat.exists
   no_log: true
   changed_when: true

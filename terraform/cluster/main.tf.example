@@ -20,16 +20,32 @@ module "vm_template" {
 #   template_vm_id  = var.template_vm_id
 #   vm_user         = var.vm_user
 #   image_url       = null
-#   image_file_id   = "local:iso/rocky10-cloudinit.img"
+#   image_file_id   = "local:import/rocky10-cloudinit.qcow2"
+#   ssh_public_keys = [trimspace(file(pathexpand(var.ssh_public_key)))]
+# }
+
+# Option 1b: several Proxmox nodes, one template per node (template VM IDs
+# must be unique across the Proxmox cluster). Pass them to k8s_cluster as
+# `templates = { for node, t in module.vm_template : node => t.template_vm_id }`
+# and set `proxmox_node` on each entry in `nodes`. If a node's VM bridge has
+# another name, add `network_bridges = { server02 = "vmbr0" }`.
+# module "vm_template" {
+#   for_each = { server01 = 9001, server02 = 9002 }
+#   source   = "../modules/vm_template"
+#
+#   proxmox_node    = each.key
+#   template_vm_id  = each.value
+#   vm_user         = var.vm_user
 #   ssh_public_keys = [trimspace(file(pathexpand(var.ssh_public_key)))]
 # }
 
 # Option 2: use an existing template (e.g. created by proxmox_setup.sh).
-# Skip the vm_template module and pass the ID directly to k3s_cluster.
+# Skip the vm_template module and pass the ID directly to k8s_cluster.
 
-module "k3s_cluster" {
-  source = "../modules/k3s_cluster"
+module "k8s_cluster" {
+  source = "../modules/k8s_cluster"
 
+  distribution         = "k3s" # or "kubeadm"
   proxmox_node         = var.proxmox_node
   template_vm_id       = module.vm_template.template_vm_id
   vm_user              = var.vm_user
@@ -68,6 +84,7 @@ module "k3s_cluster" {
       ip     = "10.0.0.12"
       memory = 4096
       cores  = 2
+      # proxmox_node = "server02"  # defaults to proxmox_node above
     }
   }
 }
