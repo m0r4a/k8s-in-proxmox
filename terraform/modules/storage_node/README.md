@@ -25,7 +25,7 @@ cluster root, so a cluster `terraform destroy` never reaches it:
 
 ```hcl
 module "storage_node" {
-  source = "github.com/m0r4a/k3s-in-proxmox//terraform/modules/storage_node?ref=main"
+  source = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/storage_node?ref=main"
 
   proxmox_node         = "server01"
   template_vm_id       = 9001

@@ -1,55 +1,64 @@
-# k3s in Proxmox
+# k8s in Proxmox
 
-Provision a disposable Kubernetes cluster on Proxmox VE with persistent
-SeaweedFS storage. Built on the `bpg/proxmox` provider. The Terraform
-modules are distribution-agnostic; Ansible currently installs k3s, with
-kubeadm planned. See [requirements.md](requirements.md) for full
-documentation and [security.md](security.md) for security measures.
+Terraform and Ansible to provision a disposable Kubernetes cluster on
+Proxmox VE, with long-lived SeaweedFS storage next to it. Terraform uses the
+`bpg/proxmox` provider and does not care which Kubernetes distribution you
+run. Ansible installs k3s today, and kubeadm is planned. The full design is
+in [requirements.md](requirements.md) and the security setup in
+[security.md](security.md).
 
 ## Getting started
 
 ### 1. Prerequisites
 
-- Proxmox VE 8.4 or newer with API + SSH access (the template disk is
-  imported from an `import` volume)
-- Terraform >= 1.4
+- Proxmox VE 8.4 or newer with API and SSH access. The template disk is
+  imported from an `import` volume, which older versions lack.
+- Terraform 1.4 or newer
 - Ansible on your workstation
 - An SSH key pair (`~/.ssh/id_ed25519`)
 
 ### 2. One-time Proxmox setup
 
-Run the setup script against the PVE host. It connects as root over SSH and
-creates a PVE role, an API user and an API token, enables the `snippets` and
-`import` content types on `local`, and creates `tfprov`, the restricted SSH
-user Terraform uses for snippet uploads. It does not create the
-template unless you pass `--create-template`; by default the `vm_template`
-Terraform module does that. See [security.md](security.md) for details.
+Point the setup script at any node of your Proxmox cluster. It logs in as
+root over SSH, finds every node of the cluster and sets all of them up:
+
+- a PVE role, API user and API token (once, for the whole cluster)
+- the `snippets` and `import` content types on the `local` storage
+- `tfprov` on each node, the SSH user Terraform uploads snippets with. Its
+  sudo rights cover only that.
+
+Templates are left to the `vm_template` Terraform module unless you pass
+`--create-template`, which makes one per node. [security.md](security.md)
+explains each step.
 
 ```bash
 cd terraform/scripts
 
-# Default: PVE role/user/token + tfprov SSH user (template via Terraform)
+# Default: PVE role/user/token + tfprov SSH user on every node (template via Terraform)
 ./proxmox_setup.sh --host 192.168.1.2 --ssh-key ~/.ssh/id_ed25519
 
-# Optional: also create the cloud-init template via the script
+# Optional: also create one cloud-init template per node via the script
 ./proxmox_setup.sh --host 192.168.1.2 --ssh-key ~/.ssh/id_ed25519 --create-template
+
+# A node that joined the cluster later
+./proxmox_setup.sh --host 192.168.1.2 --ssh-key ~/.ssh/id_ed25519 --nodes server03
 ```
 
 Save the token secret from the output. The script also prints the Proxmox
-connection block for `terraform.tfvars`; copy it into the `terraform.tfvars`
+connection block for `terraform.tfvars`. Copy it into the `terraform.tfvars`
 of both roots (`terraform/cluster` and `terraform/storage`).
 
-The script does not modify SSH settings on your PVE host. Your root SSH
-access is left untouched.
+The script does not touch the SSH settings of your Proxmox hosts, so your
+root SSH access stays as it was.
 
 ### 3. Provision the infrastructure (two roots)
 
 The cluster and the storage node live in separate Terraform roots with
-separate state, so a cluster `terraform destroy` never touches storage.
+separate state, so destroying the cluster never touches storage.
 
-Storage is long-lived: apply it once. It clones an existing template, so
-create the template first (with the cluster root's `vm_template` module or
-`proxmox_setup.sh --create-template`), then:
+Storage is long-lived and you apply it once. It clones an existing
+template, so create the template first (with the cluster root's
+`vm_template` module or `proxmox_setup.sh --create-template`), then:
 
 ```bash
 cd terraform/storage
@@ -69,41 +78,45 @@ terraform init
 terraform apply                                 # writes ansible/inventory.d/10-cluster.ini
 ```
 
-The shared Proxmox connection values can live in one file passed to both
-roots with `terraform apply -var-file=../common.tfvars`.
+Both roots can share the Proxmox connection values through one file:
+`terraform apply -var-file=../common.tfvars`.
 
 In `cluster/main.tf`, `distribution` (`k3s`, `kubeadm` or `none`) picks what
-Ansible installs, and each node can set `proxmox_node` to land on a specific node of
-the Proxmox cluster. See the
-[k8s_cluster module README](terraform/modules/k8s_cluster/README.md).
+Ansible installs. Each node can set `proxmox_node` to run on a specific node
+of the Proxmox cluster. Templates and bridge names differ per Proxmox node,
+and the `templates` and `network_bridges` maps cover that. The
+[k8s_cluster module README](terraform/modules/k8s_cluster/README.md) has the
+details and [examples/multi-node](terraform/examples/multi-node) a working
+setup.
 
 ### 4. Configure with Ansible
 
-Point Ansible at the `inventory.d/` directory and it merges both fragments:
+`ansible/ansible.cfg` points at `inventory.d/`, so Ansible picks up both
+fragments on its own:
 
 ```bash
 cd ../../ansible
-ansible-playbook -i inventory.d/ site.yml
+ansible-playbook site.yml
 ```
 
-With `distribution = "k3s"`, Ansible installs k3s, Cilium, Helm, Flux, and
+With `distribution = "k3s"`, Ansible installs k3s, Cilium, Helm, Flux and
 SeaweedFS. With `none` it only prepares the nodes (packages, SSH hardening,
-swap, kernel modules, sysctl) and installs no Kubernetes, so you can install
-it yourself. `kubeadm` has no roles yet, so the playbook stops at the first
-play with an error.
+swap, kernel modules, sysctl) and leaves installing Kubernetes to you.
+There are no kubeadm roles yet, so with `kubeadm` the playbook stops at its
+first play with an error.
 
 ## Structure
 
 ```
 terraform/
-  cluster/                 ROOT #1 - disposable Kubernetes cluster (own state)
+  cluster/                 Root 1: disposable Kubernetes cluster (own state)
     main.tf.example          Module usage (copy to main.tf, edit nodes)
     versions.tf / providers.tf / variables.tf / terraform.tfvars.example
-  storage/                 ROOT #2 - long-lived storage (own state)
+  storage/                 Root 2: long-lived storage (own state)
     main.tf.example          Module usage (copy to main.tf, edit nodes)
     versions.tf / providers.tf / variables.tf / terraform.tfvars.example
   scripts/
-    proxmox_setup.sh       One-time PVE setup
+    proxmox_setup.sh       One-time PVE setup for every node of the cluster
   modules/
     vm_template/           Creates a cloud-init template
     k8s_cluster/           Clones template into cluster VMs, writes 10-cluster.ini
@@ -111,7 +124,7 @@ terraform/
   examples/                Self-contained roots: single-node, multi-node,
                            existing-template, storage
 ansible/
-  site.yml                 distribution check -> common -> k8s_prep -> k3s_server -> k3s_agent -> storage
+  site.yml                 distribution check, common, k8s_prep, k3s_server, k3s_agent, storage
   README.md                Ansible documentation
   ansible.cfg              Uses inventory.d/ as the default inventory
   inventory.d/             Generated inventory fragments (read as a directory)
@@ -120,20 +133,20 @@ ansible/
     group_vars/              Your overrides of the role defaults (gitignored)
   inventory.examples/      Example fragments and group_vars to copy into inventory.d/
   roles/
-    common/                Package update, SSH hardening, sudo
+    common/                Package update, SSH hardening, sudo, reboot
     k8s_prep/              Swap, kernel modules, sysctl for any Kubernetes
-    k3s_server/            k3s server, Cilium, Helm, Flux
+    k3s_server/            k3s server, Cilium (bundled values), Helm, Flux
     k3s_agent/             k3s agent join
     storage/               Data disk, firewall, Docker, SeaweedFS
 ```
 
 ## Module documentation
 
-Each module has a README with usage, notes and its inputs and outputs:
-[vm_template](terraform/modules/vm_template), [k8s_cluster](terraform/modules/k8s_cluster),
-[storage_node](terraform/modules/storage_node). The tables between the
-`BEGIN_TF_DOCS` markers are generated by [terraform-docs](https://terraform-docs.io);
-after changing variables or outputs, regenerate them from `terraform/`:
+Each module has a README with usage notes and its inputs and outputs:
+[vm_template](terraform/modules/vm_template), [k8s_cluster](terraform/modules/k8s_cluster)
+and [storage_node](terraform/modules/storage_node). The tables between the
+`BEGIN_TF_DOCS` markers come from [terraform-docs](https://terraform-docs.io).
+After changing variables or outputs, regenerate them from `terraform/`:
 
 ```bash
 for d in modules/* examples/*; do terraform-docs -c .terraform-docs.yml "$d"; done
@@ -151,48 +164,48 @@ for d in modules/* examples/*; do terraform-docs -c .terraform-docs.yml "$d"; do
 
 ## Terraform and Ansible separation
 
-Each Terraform root writes its own fragment into `ansible/inventory.d/`
-with infrastructure facts (IPs, users, SSH key path, distribution, control
-plane IP, cluster CIDRs): the cluster root writes `10-cluster.ini`, the
+Each Terraform root writes its own fragment into `ansible/inventory.d/` with
+infrastructure facts: IPs, users, SSH key path, distribution, control plane
+IP and cluster CIDRs. The cluster root writes `10-cluster.ini` and the
 storage root writes `20-storage.ini`. Ansible reads the whole directory and
-merges them. Ansible configuration (versions, install URLs, the Cilium
-values, reboot policy) is in each role's `defaults/main.yml`, so the
-playbook works with no extra files; override any of it in
-`ansible/inventory.d/group_vars/`. Ansible can run standalone with manual
-fragments (copy the files in `ansible/inventory.examples/` into
-`ansible/inventory.d/`).
+merges them.
+
+Everything else (versions, install URLs, the Cilium values, reboot policy)
+has a default in its role's `defaults/main.yml`, so the playbook runs without
+any extra files. To change a setting, put it in
+`ansible/inventory.d/group_vars/`. Ansible also runs without Terraform if you
+copy the files in `ansible/inventory.examples/` into `ansible/inventory.d/`
+and edit them.
 
 ## Using it from another repository
 
-The repo is self-contained, so another repository can pin it as a git
-submodule and keep only its own inventory and overrides:
+The repo needs nothing from outside, so another repository can pin it as a
+git submodule and keep only its own inventory and overrides:
 
 ```
 my-infra/
-  k3s-in-proxmox/            git submodule add https://github.com/m0r4a/k3s-in-proxmox.git
-  terraform/cluster/main.tf  source = "../../k3s-in-proxmox/terraform/modules/k8s_cluster"
+  k8s-in-proxmox/            git submodule add https://github.com/m0r4a/k8s-in-proxmox.git
+  terraform/cluster/main.tf  source = "../../k8s-in-proxmox/terraform/modules/k8s_cluster"
   ansible/
     ansible.cfg              inventory = inventory.d
-    site.yml                 - ansible.builtin.import_playbook: ../k3s-in-proxmox/ansible/site.yml
+    site.yml                 - ansible.builtin.import_playbook: ../k8s-in-proxmox/ansible/site.yml
     inventory.d/group_vars/  overrides, e.g. cilium_values_file
 ```
 
-Update it with `git submodule update --remote k3s-in-proxmox`, or pin a tag with
-`git -C k3s-in-proxmox checkout <tag>`.
+Pull the latest version with `git submodule update --remote k8s-in-proxmox`,
+or pin a tag with `git -C k8s-in-proxmox checkout <tag>`.
 
 ## Workflow
 
-To swap clusters without touching storage, run
+To replace the cluster and keep storage, run
 `cd terraform/cluster && terraform destroy`, edit `main.tf`, run
-`terraform apply`, then `cd ../../ansible && ansible-playbook -i inventory.d/ site.yml`.
+`terraform apply`, then `cd ../../ansible && ansible-playbook site.yml`.
 
-Storage is a separate root with its own state, so a cluster
-`terraform destroy` cannot reach it. The storage VM also sets
-`prevent_destroy = true` in case the storage root itself is destroyed by
-accident.
+A cluster `terraform destroy` cannot reach storage, because storage has its
+own root and state. The storage VM also sets `prevent_destroy = true` in case
+someone destroys the storage root itself by accident.
 
-To reconfigure only storage, run
-`ansible-playbook -i inventory.d/ site.yml --limit storage`.
+To reconfigure only storage, run `ansible-playbook site.yml --limit storage`.
 
 To tear storage down on purpose, comment out `prevent_destroy` in
 `modules/storage_node/main.tf`, then `cd terraform/storage && terraform destroy`.
@@ -200,8 +213,8 @@ To tear storage down on purpose, comment out `prevent_destroy` in
 ## Security
 
 [security.md](security.md) covers:
-- Proxmox host SSH setup and lockout protection
+- Proxmox host SSH setup, the `tfprov` user and lockout protection
 - PVE API permissions
 - VM SSH hardening and sudo configuration
-- Storage node firewall
-- Production recommendations
+- The storage node firewall
+- Recommendations for production

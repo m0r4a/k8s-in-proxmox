@@ -21,7 +21,7 @@ cluster, call the module once per node with `for_each`.
 
 ```hcl
 module "vm_template" {
-  source = "github.com/m0r4a/k3s-in-proxmox//terraform/modules/vm_template?ref=main"
+  source = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/vm_template?ref=main"
 
   proxmox_node    = "server01"
   template_vm_id  = 9001
@@ -35,7 +35,7 @@ One template per node of a Proxmox cluster:
 ```hcl
 module "vm_template" {
   for_each = { server01 = 9001, server02 = 9002 }
-  source   = "github.com/m0r4a/k3s-in-proxmox//terraform/modules/vm_template?ref=main"
+  source   = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/vm_template?ref=main"
 
   proxmox_node    = each.key
   template_vm_id  = each.value

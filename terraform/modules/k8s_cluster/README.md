@@ -27,7 +27,7 @@ inventory.
 
 ```hcl
 module "vm_template" {
-  source = "github.com/m0r4a/k3s-in-proxmox//terraform/modules/vm_template?ref=main"
+  source = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/vm_template?ref=main"
 
   proxmox_node    = "server01"
   template_vm_id  = 9001
@@ -36,7 +36,7 @@ module "vm_template" {
 }
 
 module "k8s_cluster" {
-  source = "github.com/m0r4a/k3s-in-proxmox//terraform/modules/k8s_cluster?ref=main"
+  source = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/k8s_cluster?ref=main"
 
   distribution         = "k3s"
   proxmox_node         = "server01"

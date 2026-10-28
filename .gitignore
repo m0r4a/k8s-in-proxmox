@@ -1,8 +1,25 @@
-terraform/terraform.tfstate*
-terraform/.terraform*
-terraform/.env
-terraform/main.tf
-ansible/inventory.ini
-ansible/group_vars/all.yml
-ansible/observability.md
-terraform/example.tf
+# Terraform state, plugins, lock files
+**/terraform.tfstate*
+**/.terraform*
+**/.terraform.lock.hcl
+!**/.terraform-docs.yml
+
+# Secrets and per-environment configs (examples are committed)
+**/.env
+**/terraform.tfvars
+
+# User-specific terraform config (examples are committed)
+terraform/cluster/main.tf
+terraform/storage/main.tf
+
+# Ansible generated inventory fragments (examples live in inventory.examples/)
+ansible/inventory.d/*.ini
+ansible/inventory.d/group_vars/
+
+# POC (kept locally for reference, not part of the project)
+terraform/small-poc-working-vm/
+
+# OS files
+.DS_Store
+*.swp
+*~
