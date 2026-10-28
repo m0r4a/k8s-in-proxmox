@@ -131,6 +131,16 @@ tasks without interactive password prompts. The file is validated with
 `visudo -cf` before being written. Cloud-init's default wildcard
 sudoers file (`90-cloud-init-users`) is removed to prevent duplicates.
 
+### Kubeconfig
+
+k3s writes the admin kubeconfig to `/etc/rancher/k3s/k3s.yaml` as
+`root:<cluster_admin_user> 0640` (`--write-kubeconfig-group` and
+`--write-kubeconfig-mode`), and `~/.kube/config` of the admin user links to
+it. Only root and that user's group can read it. k3s's own `kubectl` reads
+`k3s.yaml` whenever `KUBECONFIG` is unset, so the group read is what lets the
+admin user run `kubectl` from any shell, script or cron job. The link also
+keeps `~/.kube/config` current when k3s rotates its certificates.
+
 ### Storage node firewall
 
 Optional, disabled by default. To enable:

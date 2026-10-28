@@ -9,8 +9,11 @@
     curl -sfL {{ k3s_install_script_url }} | \
       INSTALL_K3S_EXEC="server \
         --flannel-backend=none \
+        --disable-kube-proxy \
         --disable=servicelb \
         --disable-network-policy \
+        --write-kubeconfig-group={{ cluster_admin_user }} \
+        --write-kubeconfig-mode=0640 \
         --cluster-cidr={{ k8s_cluster_cidr }} \
         --service-cidr={{ k8s_service_cidr }}" \
       sh -
