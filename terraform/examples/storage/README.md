@@ -12,6 +12,10 @@ storage.
 
 ## Usage
 
+The example pulls the modules from the `main` branch on GitHub, so it does
+not pick up local changes to `terraform/modules/`, but it still writes the
+Ansible inventory into the `ansible/` directory of this clone.
+
 ```bash
 cp terraform.tfvars.example terraform.tfvars   # fill in your values
 terraform init
@@ -35,7 +39,7 @@ module first and then run `terraform destroy`.
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
-| storage_node | ../../modules/storage_node | n/a |
+| storage_node | github.com/m0r4a/k8s-in-proxmox//terraform/modules/storage_node | main |
 
 ## Inputs
 

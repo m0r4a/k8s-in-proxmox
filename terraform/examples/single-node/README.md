@@ -10,6 +10,10 @@ Edit `main.tf` to match your node name, bridge, VM IDs and IPs.
 
 ## Usage
 
+The example pulls the modules from the `main` branch on GitHub, so it does
+not pick up local changes to `terraform/modules/`, but it still writes the
+Ansible inventory into the `ansible/` directory of this clone.
+
 ```bash
 cp terraform.tfvars.example terraform.tfvars   # fill in your values
 terraform init
@@ -31,8 +35,8 @@ Run `terraform destroy` when you are done.
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
-| k8s_cluster | ../../modules/k8s_cluster | n/a |
-| vm_template | ../../modules/vm_template | n/a |
+| k8s_cluster | github.com/m0r4a/k8s-in-proxmox//terraform/modules/k8s_cluster | main |
+| vm_template | github.com/m0r4a/k8s-in-proxmox//terraform/modules/vm_template | main |
 
 ## Inputs
 

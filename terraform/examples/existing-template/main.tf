@@ -3,7 +3,7 @@
 # No vm_template module here.
 
 module "k8s_cluster" {
-  source = "../../modules/k8s_cluster"
+  source = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/k8s_cluster?ref=main"
 
   distribution         = "k3s"
   vm_user              = var.vm_user

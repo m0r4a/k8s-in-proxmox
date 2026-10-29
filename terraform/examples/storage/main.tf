@@ -2,7 +2,7 @@
 # cluster `terraform destroy` never reaches it. It clones an existing template.
 
 module "storage_node" {
-  source = "../../modules/storage_node"
+  source = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/storage_node?ref=main"
 
   vm_user              = var.vm_user
   vm_password          = var.vm_password

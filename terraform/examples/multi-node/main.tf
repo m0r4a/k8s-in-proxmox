@@ -2,7 +2,7 @@
 # local storage are only visible to their own node) and VMs placed per node.
 
 module "vm_template" {
-  source = "../../modules/vm_template"
+  source = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/vm_template?ref=main"
 
   vm_user        = var.vm_user
   ssh_public_key = var.ssh_public_key
@@ -17,7 +17,7 @@ module "vm_template" {
 }
 
 module "k8s_cluster" {
-  source = "../../modules/k8s_cluster"
+  source = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/k8s_cluster?ref=main"
 
   distribution         = "k3s"
   vm_user              = var.vm_user
