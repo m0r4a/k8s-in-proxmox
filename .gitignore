@@ -6,11 +6,8 @@
 
 # Secrets and per-environment configs (examples are committed)
 **/.env
-**/terraform.tfvars
+**/*.tfvars
 
-# User-specific terraform config (examples are committed)
-terraform/cluster/main.tf
-terraform/storage/main.tf
 
 # Ansible generated inventory fragments (examples live in inventory.examples/)
 ansible/inventory.d/*.ini

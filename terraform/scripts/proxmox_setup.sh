@@ -741,7 +741,7 @@ if [[ -n "${TOKEN_OUTPUT}" ]]; then
 fi
 
 echo
-info "terraform.tfvars (copy to terraform/cluster and terraform/storage):"
+info "terraform.tfvars (copy into every root you apply, e.g. terraform/examples/*):"
 echo
 cat <<EOF
 proxmox_endpoint             = "https://${PVE_HOST}:8006/"

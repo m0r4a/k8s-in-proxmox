@@ -10,11 +10,12 @@ SeaweedFS storage for PVCs. The cluster is rebuilt with a single
 2. Terraform modules: `vm_template` (creates a cloud-init template),
    `k8s_cluster` (clones that template into the cluster VMs), and
    `storage_node` (clones it into the long-lived storage VMs). The cluster
-   and storage modules accept a `template_vm_id` so they work with either
-   the template module or a pre-existing template (e.g. one created by
-   `proxmox_setup.sh`). The cluster and storage modules run from separate
-   Terraform roots with separate state (`terraform/cluster`,
-   `terraform/storage`) so a cluster destroy cannot touch storage.
+   and storage modules take the template ID of each Proxmox node through
+   `proxmox_nodes`, so they work with either the template module or a
+   pre-existing template (e.g. one created by `proxmox_setup.sh`). The
+   cluster and storage modules run from separate Terraform roots with
+   separate state (see `terraform/examples/`) so a cluster destroy cannot
+   touch storage.
 3. Fix lifecycle management: changing CPU or RAM on a VM must not
    recreate it. The bpg provider updates `cpu.cores` and `memory.dedicated`
    in-place and reboots via `reboot_after_update = true`.
@@ -34,12 +35,11 @@ SeaweedFS storage for PVCs. The cluster is rebuilt with a single
 ```
 .
 ├── terraform/
-│   ├── cluster/                # ROOT #1: disposable Kubernetes cluster (own state)
-│   │   ├── main.tf             #   How you use the modules (edit this)
-│   │   ├── versions.tf / providers.tf / variables.tf / terraform.tfvars.example
-│   ├── storage/                # ROOT #2: long-lived storage (own state)
-│   │   ├── main.tf             #   How you use the storage module (edit this)
-│   │   ├── versions.tf / providers.tf / variables.tf / terraform.tfvars.example
+│   ├── examples/               # Self-contained roots, each with its own state
+│   │   ├── single-node/        #   Disposable cluster on one Proxmox node
+│   │   ├── multi-node/         #   Disposable cluster across two Proxmox nodes
+│   │   ├── existing-template/  #   Cluster from templates made by proxmox_setup.sh
+│   │   └── storage/            #   Long-lived storage VM
 │   ├── scripts/
 │   │   └── proxmox_setup.sh    # One-time PVE setup (role, user, token, template)
 │   └── modules/
@@ -51,8 +51,8 @@ SeaweedFS storage for PVCs. The cluster is rebuilt with a single
     ├── README.md               # Ansible documentation
     ├── ansible.cfg             # inventory = inventory.d
     ├── inventory.d/            # Generated inventory fragments, read as a directory
-    │   ├── 10-cluster.ini      #   From the cluster root (gitignored)
-    │   ├── 20-storage.ini      #   From the storage root (gitignored)
+    │   ├── 10-cluster.ini      #   From a cluster example (gitignored)
+    │   ├── 20-storage.ini      #   From the storage example (gitignored)
     │   └── group_vars/         #   Overrides of the role defaults (gitignored)
     ├── inventory.examples/     # Example fragments and group_vars (committed, kept
     │                           #   out of inventory.d so Ansible doesn't load them)
@@ -164,17 +164,18 @@ care how the template was created.
 
 ## Cluster swap workflow
 
-1. `cd terraform/cluster && terraform destroy`. Storage lives in a separate
-   root and state, so it is untouched.
-2. Edit node IPs, counts or `distribution` in `cluster/main.tf`, and point
-   the GitOps tool at the new cluster.
-3. `cd terraform/cluster && terraform apply` brings the new cluster up.
-4. `cd ../../ansible && ansible-playbook -i inventory.d/ site.yml`
+1. `terraform destroy` in the cluster example you deployed (e.g.
+   `terraform/examples/multi-node`). Storage lives in a separate root and
+   state, so it is untouched.
+2. Edit node IPs, counts or `distribution` in the `main.tf` of that example,
+   and point the GitOps tool at the new cluster.
+3. `terraform apply` in the same directory brings the new cluster up.
+4. `cd ../../../ansible && ansible-playbook -i inventory.d/ site.yml`
 
 ## Prerequisites
 
 - Proxmox VE 8.4 or newer with API + SSH access.
-- Terraform >= 1.4.
+- Terraform >= 1.9.
 - Ansible on your workstation.
 - SSH key pair for the Proxmox node and the VMs.
 - A PVE API user + token (created by `proxmox_setup.sh` or manually).

@@ -44,53 +44,58 @@ cd terraform/scripts
 ```
 
 Save the token secret from the output, and copy the Proxmox connection block
-that the script prints into the `terraform.tfvars` of both roots
-(`terraform/cluster` and `terraform/storage`). With `--create-template` it
-also prints a `proxmox_nodes` block with the template ID of each node.
+that the script prints into the `terraform.tfvars` of every root you apply.
+With `--create-template` it also prints a `proxmox_nodes` block with the
+template ID of each node.
 
 The script does not touch the SSH settings of your Proxmox hosts, so your
 root SSH access stays as it was.
 
-### 3. Provision the infrastructure (two roots)
+### 3. Provision the infrastructure
 
-The cluster and the storage node live in separate Terraform roots with
-separate state, so destroying the cluster never touches storage.
+Each directory in [`terraform/examples/`](terraform/examples) is a
+self-contained Terraform root with its own state. The cluster and the
+storage node always run from separate roots, so destroying the cluster never
+touches storage. Pick the cluster example that fits your Proxmox setup and
+edit its `main.tf` for your nodes, IPs and VM IDs.
 
-Storage is long-lived and you apply it once. Because it clones an existing
-template, create that template first (with the `vm_template` module of the
-cluster root or with `proxmox_setup.sh --create-template`) and then apply
-the storage root.
-
-```bash
-cd terraform/storage
-cp main.tf.example main.tf                     # edit storage node definitions
-cp terraform.tfvars.example terraform.tfvars   # edit with your values
-terraform init
-terraform apply                                # writes ansible/inventory.d/20-storage.ini
-```
+| Example | What it deploys |
+| --- | --- |
+| [single-node](terraform/examples/single-node) | It creates a template and a k3s cluster on one Proxmox node. |
+| [multi-node](terraform/examples/multi-node) | It creates a template on each of two Proxmox nodes and spreads the cluster across them. |
+| [existing-template](terraform/examples/existing-template) | It deploys the cluster from templates made by `proxmox_setup.sh --create-template`. |
+| [storage](terraform/examples/storage) | It creates the long-lived SeaweedFS storage VM. |
 
 The cluster is disposable, so you can apply and destroy it as often as you
 like.
 
 ```bash
-cd ../cluster
-cp main.tf.example main.tf                      # edit control-plane/worker nodes
-cp terraform.tfvars.example terraform.tfvars    # edit with your values
+cd terraform/examples/multi-node                # or single-node, existing-template
+cp terraform.tfvars.example terraform.tfvars    # fill in your values
 terraform init
 terraform apply                                 # writes ansible/inventory.d/10-cluster.ini
+```
+
+Storage is long-lived and you apply it once, after a cluster example or
+`proxmox_setup.sh --create-template` has created the template it clones.
+
+```bash
+cd ../storage
+cp terraform.tfvars.example terraform.tfvars    # fill in your values
+terraform init
+terraform apply                                 # writes ansible/inventory.d/20-storage.ini
 ```
 
 Both roots can share the Proxmox connection values through one file if you
 pass `-var-file=../common.tfvars` to `terraform apply`.
 
-The `distribution` setting in `cluster/main.tf` (`k3s`, `kubeadm` or `none`)
-picks what Ansible installs. The `proxmox_nodes` map in `terraform.tfvars`
+The `distribution` setting in the `main.tf` of a cluster example (`k3s`,
+`kubeadm` or `none`) picks what Ansible installs. Its `proxmox_nodes` map
 lists the Proxmox nodes the VMs can run on, together with the template,
-bridge and datastores of each one. When the map has more than one entry,
+bridge and datastores of each one, and when the map has more than one entry
 every VM picks its node with `proxmox_node`. The
 [k8s_cluster module README](terraform/modules/k8s_cluster/README.md) has the
-details, and [examples/multi-node](terraform/examples/multi-node) shows a
-working setup.
+details.
 
 ### 4. Configure with Ansible
 
@@ -98,7 +103,7 @@ working setup.
 fragments on its own.
 
 ```bash
-cd ../../ansible
+cd ../../../ansible
 ansible-playbook site.yml
 ```
 
@@ -112,27 +117,24 @@ error in its first play.
 
 ```
 terraform/
-  cluster/                 Root 1: disposable Kubernetes cluster (own state)
-    main.tf.example          Module usage (copy to main.tf, edit nodes)
-    versions.tf / providers.tf / variables.tf / terraform.tfvars.example
-  storage/                 Root 2: long-lived storage (own state)
-    main.tf.example          Module usage (copy to main.tf, edit nodes)
-    versions.tf / providers.tf / variables.tf / terraform.tfvars.example
   scripts/
     proxmox_setup.sh       One-time PVE setup for every node of the cluster
   modules/
-    vm_template/           Creates a cloud-init template
-    k8s_cluster/           Clones template into cluster VMs, writes 10-cluster.ini
-    storage_node/          Clones template into storage VMs, writes 20-storage.ini
-  examples/                Self-contained roots: single-node, multi-node,
-                           existing-template, storage
+    vm_template/           Creates cloud-init templates
+    k8s_cluster/           Clones templates into cluster VMs, writes 10-cluster.ini
+    storage_node/          Clones templates into storage VMs, writes 20-storage.ini
+  examples/                Self-contained roots, each with its own state
+    single-node/           Disposable cluster on one Proxmox node
+    multi-node/            Disposable cluster across two Proxmox nodes
+    existing-template/     Cluster from templates made by proxmox_setup.sh
+    storage/               Long-lived storage VM
 ansible/
   site.yml                 distribution check, common, k8s_prep, k3s_server, k3s_agent, storage
   README.md                Ansible documentation
   ansible.cfg              Uses inventory.d/ as the default inventory
   inventory.d/             Generated inventory fragments (read as a directory)
-    10-cluster.ini           From the cluster root (gitignored)
-    20-storage.ini           From the storage root (gitignored)
+    10-cluster.ini           From a cluster example (gitignored)
+    20-storage.ini           From the storage example (gitignored)
     group_vars/              Your overrides of the role defaults (gitignored)
   inventory.examples/      Example fragments and group_vars to copy into inventory.d/
   roles/

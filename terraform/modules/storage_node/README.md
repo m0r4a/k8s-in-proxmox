@@ -23,7 +23,8 @@ to outlive it.
 
 ## Usage
 
-Run the module from its own root and state (`terraform/storage/`), separate
+Run the module from its own root and state (like
+[examples/storage](../../examples/storage)), separate
 from the cluster root, so that a `terraform destroy` of the cluster never
 reaches it.
 
