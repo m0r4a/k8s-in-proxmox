@@ -6,9 +6,9 @@ Terraform generates, but they also run standalone with an inventory you
 write by hand.
 
 The `k8s_distribution` value in the inventory picks the Kubernetes roles,
-and only `k3s` has roles so far. With `none`, the playbook runs `common` and
-`k8s_prep` and installs no Kubernetes. Any other value makes the first play
-of `site.yml` fail.
+and only `k3s` has roles so far. With `none` the playbook only runs `common`
+and `k8s_prep` and installs no Kubernetes, while any other value makes the
+first play of `site.yml` fail.
 
 ## Usage
 
@@ -24,18 +24,19 @@ ansible-playbook -i inventory.d/ site.yml
 
 ## Design
 
-Ansible reads `inventory.d/` as a directory of inventory fragments. The
+Ansible reads `inventory.d/` as a directory of inventory fragments, and the
 examples live in `inventory.examples/` because Ansible would load any file
 left in `inventory.d/`, including the `*.example` ones.
 
-Each Terraform root writes its own fragment. The cluster root writes
-`10-cluster.ini` with the `control_plane` and `worker` groups, and the
-storage root writes `20-storage.ini` with the `storage` group. Ansible reads
-the whole directory and merges the groups. The fragments only hold
+Each Terraform root writes its own fragment, `10-cluster.ini` with the
+`control_plane` and `worker` groups from the cluster root and
+`20-storage.ini` with the `storage` group from the storage root, and Ansible
+reads the whole directory and merges the groups. The fragments only hold
 infrastructure facts (IPs, users, the SSH key path, the distribution, the
-control plane IP and the cluster CIDRs). Ansible configuration lives in the
-`defaults/main.yml` of each role, so the playbook needs no extra files, and
-Ansible can run without Terraform if you write the fragments by hand.
+control plane IP and the cluster CIDRs), while the Ansible configuration
+lives in the `defaults/main.yml` of each role. That way the playbook needs
+no extra files, and Ansible can run without Terraform if you write the
+fragments by hand.
 
 The storage fragment carries its own `[storage:vars]` with the SSH key and
 the admin user, so you can configure storage even when the cluster fragment
@@ -55,7 +56,7 @@ is absent.
 
 Terraform writes the node roles with hyphens (`control-plane` and `worker`),
 while the Ansible groups use underscores (`control_plane`, `worker` and
-`storage`). The inventory template maps one name to the other.
+`storage`), and the inventory template maps one name to the other.
 
 ## Overrides
 
@@ -90,9 +91,9 @@ facts `k8s_distribution`, `k8s_control_plane_ip`, `k8s_cluster_cidr`,
 
 `common` updates every package and reboots all hosts at once when anything
 changed, which on a fresh deploy happens in the first run. Setting
-`allow_reboot_on_update: false` turns this off. In that case you have to
-reboot by hand after a kernel update, because `kernel-modules-extra` only
-ships modules for the new kernel, and `k8s_prep` and `storage` fail to load
+`allow_reboot_on_update: false` turns this off, and then you have to reboot
+by hand after a kernel update, because `kernel-modules-extra` only ships
+modules for the new kernel, and `k8s_prep` and `storage` fail to load
 `br_netfilter` until the node runs that kernel.
 
 ## Security
@@ -102,9 +103,9 @@ allowing only key authentication. `ssh_hardening_enabled` controls this and
 defaults to `true`, so set it to `false` in `inventory.d/group_vars/all.yml`
 if you want to disable it.
 
-The firewall on the storage node is optional. To restrict the SeaweedFS
-ports to the cluster subnet, set `seaweedfs_firewall_enabled: true` and
-`seaweedfs_allowed_cidr: "your-subnet/24"` in
+The firewall on the storage node is optional, so if you want it to restrict
+the SeaweedFS ports to the cluster subnet, set `seaweedfs_firewall_enabled:
+true` and `seaweedfs_allowed_cidr: "your-subnet/24"` in
 `inventory.d/group_vars/storage.yml`.
 
 [security.md](../security.md) has the full documentation.

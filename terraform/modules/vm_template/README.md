@@ -19,8 +19,9 @@ that hosts VMs needs its own.
 - It uploads the vendor snippet that installs qemu-guest-agent.
 - The templates use UEFI (OVMF), the q35 machine type, CPU type `max`,
   VirtIO SCSI single and DHCP.
-- Entries with `template_node` set reuse the template of another entry, so
-  the module creates nothing for them. This only works with shared storage.
+- Entries with `template_node` set reuse the template of another entry,
+  which only works with shared storage, so the module creates nothing for
+  them.
 
 ## Usage
 
@@ -65,14 +66,13 @@ a `depends_on`.
 
 1. By default, this module downloads the Rocky 10 image from `image_url`.
 2. With `image_url = null` and `image_file_id` set, this module uses an
-   image that is already on the node. The image must be an import volume
-   such as `local:import/rocky10.qcow2`.
+   image that is already on the node, which must be an import volume such as
+   `local:import/rocky10.qcow2`.
 3. `proxmox_setup.sh --create-template` creates one template per node with
-   shell commands, which keeps the templates out of Terraform state. In that
+   shell commands and keeps the templates out of Terraform state, in which
    case you skip this module and paste the `proxmox_nodes` block that the
-   script prints. The
-   [existing-template example](../../examples/existing-template) shows this
-   setup.
+   script prints, as the [existing-template
+   example](../../examples/existing-template) does.
 
 ## Notes
 

@@ -58,9 +58,9 @@ The [storage](../../examples/storage) example creates one storage VM.
 
 ## Prerequisites
 
-The module does not create the template. Create it first with the
-[`vm_template`](../vm_template) module, usually from the cluster root, or
-with `proxmox_setup.sh --create-template`. Then set its ID as the
+The module does not create the template, so create it first with the
+[`vm_template`](../vm_template) module (usually from the cluster root) or
+with `proxmox_setup.sh --create-template`, and then set its ID as the
 `template_vm_id` of its node in `proxmox_nodes`.
 
 ## Nodes
@@ -100,9 +100,9 @@ in `ansible/inventory.d/group_vars/storage.yml`.
 
 ## Tearing it down
 
-`prevent_destroy` makes Terraform refuse to destroy the VMs. For an
-intentional teardown, comment it out in the `main.tf` of this module and
-then run `terraform destroy` in the storage root. The data disk is deleted
+`prevent_destroy` makes Terraform refuse to destroy the VMs, so for an
+intentional teardown you comment it out in the `main.tf` of this module
+and run `terraform destroy` in the storage root, which deletes the data disk
 together with the VM.
 
 ## Limitations

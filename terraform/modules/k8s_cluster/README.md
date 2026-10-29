@@ -6,9 +6,8 @@ provider. It can spread the VMs across the nodes of a Proxmox cluster, and it
 writes the Ansible inventory fragment that `ansible/site.yml` uses to install
 Kubernetes on them.
 
-The module only creates infrastructure. Installing the Kubernetes
-distribution is the job of Ansible, and the module just records the choice
-in the inventory.
+The module only creates infrastructure and records the chosen Kubernetes
+distribution in the inventory, since installing it is the job of Ansible.
 
 ## Features
 
@@ -117,24 +116,24 @@ and 1700 MB, which is the kubeadm preflight minimum.
 ## Proxmox nodes
 
 `proxmox_nodes` lists the Proxmox nodes the VMs can run on and holds
-everything that differs between them. The map key is the name that the rest
-of the configuration uses for each node.
+everything that differs between them, and each key is the name that the rest
+of the configuration uses for that node.
 
 | Field | Required | Description |
 | --- | --- | --- |
 | `proxmox_node_name` | no | The node name in Proxmox defaults to the map key. |
 | `template_vm_id` | yes | VMs on this node clone the template with this ID. |
-| `template_node` | no | When the template lives on another entry, this field holds the key of that entry. It only works with shared storage. |
+| `template_node` | no | When the template lives on another entry, this field holds the key of that entry, which only works with shared storage. |
 | `network_bridge` | no | The bridge that carries the VM network on this node defaults to `vmbr0`. |
 | `datastore_id` | no | The datastore for the cloned disks defaults to `local-lvm`. |
 | `cloudinit_datastore_id` | no | The datastore for the cloud-init drive defaults to `local-lvm`. |
 
-With a single entry, every VM goes to that node without naming it. With more
-than one entry, every VM in `nodes` must set `proxmox_node`, and the module
-rejects names that are not keys of `proxmox_nodes`.
+With a single entry every VM goes to that node without naming it, but with
+more than one entry every VM in `nodes` must set `proxmox_node`, and the
+module rejects names that are not keys of `proxmox_nodes`.
 
-`nodes[*].proxmox_node` and `template_node` always refer to the map key. If
-you set `proxmox_node_name`, you can give a node a key of your own and keep
+`nodes[*].proxmox_node` and `template_node` always refer to the map key, so
+setting `proxmox_node_name` lets you give a node a key of your own and keep
 its Proxmox name out of the rest of the configuration.
 
 ```hcl
@@ -160,15 +159,16 @@ nodes = {
 ```
 
 The [`vm_template`](../vm_template) module takes the same map and creates
-the templates. Its `proxmox_nodes` output returns the map once the templates
-exist, so passing that output here makes the VMs wait for them. The
-[multi-node example](../../examples/multi-node) does exactly that.
+the templates, and its `proxmox_nodes` output returns that map once the
+templates exist. Passing that output here, as the
+[multi-node example](../../examples/multi-node) does, makes the VMs wait for
+their templates.
 
 ## Distribution
 
-`distribution` does not change the VMs. The module tags each VM with it and
-writes it to the inventory as `k8s_distribution`, and `site.yml` picks the
-roles from it.
+`distribution` does not change the VMs, because the module only tags each VM
+with it and writes it to the inventory as `k8s_distribution`, where
+`site.yml` picks the roles from it.
 
 | `distribution` | What `site.yml` does |
 | --- | --- |
@@ -179,8 +179,8 @@ roles from it.
 ## Ansible integration
 
 With `ansible.enabled = true`, the module writes
-`<ansible.path>/inventory.d/10-cluster.ini`. For the usage example above,
-the file looks like this.
+`<ansible.path>/inventory.d/10-cluster.ini`, which for the usage example
+above looks like this.
 
 ```ini
 [control_plane]
@@ -204,9 +204,9 @@ cluster_admin_user=mora
 cluster_admin_home=/home/mora
 ```
 
-The fragment only holds infrastructure facts. Ansible configuration such as
-versions and install URLs lives in the role defaults, and you can override
-it in `ansible/inventory.d/group_vars/`. Ansible reads every file in
+The fragment only holds infrastructure facts, while Ansible configuration
+such as versions and install URLs lives in the role defaults, where you can
+override it in `ansible/inventory.d/group_vars/`. Ansible reads every file in
 `inventory.d/`, so this fragment merges with the `20-storage.ini` fragment
 that the `storage_node` module writes.
 
@@ -226,9 +226,9 @@ Cilium.
 
 ## Limitations
 
-- The module supports a single control-plane node. It reads
-  `control_plane_ip` with `one()`, so a second control-plane node makes the
-  plan fail, and HA control planes are not supported yet.
+- The module supports a single control-plane node, because it reads
+  `control_plane_ip` with `one()` and a second control-plane node makes the
+  plan fail, so HA control planes are not supported yet.
 - The module only supports static IPv4 addresses.
 - Storage VMs come from a separate module, [`storage_node`](../storage_node),
   which runs from its own root so that destroying the cluster never reaches

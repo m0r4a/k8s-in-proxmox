@@ -2,10 +2,10 @@
 
 This repository holds the Terraform and Ansible code that provisions a
 disposable Kubernetes cluster on Proxmox VE, with long-lived SeaweedFS
-storage next to it. Terraform uses the `bpg/proxmox` provider and does not
-care which Kubernetes distribution you run. Ansible installs k3s today, and
-kubeadm support is planned. [requirements.md](requirements.md) describes the
-full design and [security.md](security.md) describes the security setup.
+storage next to it. Terraform uses the `bpg/proxmox` provider and works with
+any Kubernetes distribution, while Ansible installs k3s today and has
+kubeadm support planned. [requirements.md](requirements.md) describes the
+full design and [security.md](security.md) the security setup.
 
 ## Getting started
 
@@ -27,8 +27,8 @@ Terraform uses to upload snippets, with sudo rights that cover only that
 task.
 
 The script leaves the templates to the `vm_template` Terraform module unless
-you pass `--create-template`, in which case it creates one template per
-node. [security.md](security.md) explains each step.
+you pass `--create-template`, in which case it creates one template per node, and
+[security.md](security.md) explains each step.
 
 ```bash
 cd terraform/scripts
@@ -43,11 +43,10 @@ cd terraform/scripts
 ./proxmox_setup.sh --host 192.168.1.2 --ssh-key ~/.ssh/id_ed25519 --nodes server03
 ```
 
-Save the token secret from the output. The script also prints the Proxmox
-connection block for `terraform.tfvars`, which you copy into the
-`terraform.tfvars` of both roots (`terraform/cluster` and
-`terraform/storage`). With `--create-template` it also prints a
-`proxmox_nodes` block with the template ID of each node.
+Save the token secret from the output, and copy the Proxmox connection block
+that the script prints into the `terraform.tfvars` of both roots
+(`terraform/cluster` and `terraform/storage`). With `--create-template` it
+also prints a `proxmox_nodes` block with the template ID of each node.
 
 The script does not touch the SSH settings of your Proxmox hosts, so your
 root SSH access stays as it was.
@@ -57,10 +56,10 @@ root SSH access stays as it was.
 The cluster and the storage node live in separate Terraform roots with
 separate state, so destroying the cluster never touches storage.
 
-Storage is long-lived and you apply it once. It clones an existing template,
-so create the template first with the `vm_template` module of the cluster
-root or with `proxmox_setup.sh --create-template`. Then apply the storage
-root.
+Storage is long-lived and you apply it once. Because it clones an existing
+template, create that template first (with the `vm_template` module of the
+cluster root or with `proxmox_setup.sh --create-template`) and then apply
+the storage root.
 
 ```bash
 cd terraform/storage
@@ -146,10 +145,10 @@ ansible/
 
 ## Module documentation
 
-Each module has a README with usage notes and a table of its inputs and
-outputs. The modules are [vm_template](terraform/modules/vm_template),
+Each module ([vm_template](terraform/modules/vm_template),
 [k8s_cluster](terraform/modules/k8s_cluster) and
-[storage_node](terraform/modules/storage_node). The tables between the
+[storage_node](terraform/modules/storage_node)) has a README with usage
+notes and a table of its inputs and outputs. The tables between the
 `BEGIN_TF_DOCS` markers come from [terraform-docs](https://terraform-docs.io),
 so regenerate them from `terraform/` after you change variables or outputs.
 
@@ -177,9 +176,9 @@ the whole directory and merges them.
 
 Everything else (versions, install URLs, the Cilium values and the reboot
 policy) has a default in the `defaults/main.yml` of its role, so the
-playbook runs without any extra files. To change a setting, put it in
-`ansible/inventory.d/group_vars/`. Ansible also runs without Terraform if
-you copy the files in `ansible/inventory.examples/` into
+playbook runs without any extra files, and you change a setting by putting
+it in `ansible/inventory.d/group_vars/`. Ansible also runs without Terraform
+if you copy the files in `ansible/inventory.examples/` into
 `ansible/inventory.d/` and edit them.
 
 ## Using it from another repository

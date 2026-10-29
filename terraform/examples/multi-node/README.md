@@ -10,11 +10,12 @@ cluster, as the table shows.
 | worker2 (`10.0.0.12`) | `myOtherServer` | `server02` | 9002 | `vmbr0` |
 
 Each Proxmox node gets its own template, because templates on `local-lvm`
-are only visible to their own node. The VM network also sits on a bridge
-with a different name on each node. Both settings live in the
-`proxmox_nodes` map of `vm_template`, which creates the templates and hands
-the map to `k8s_cluster` through its `proxmox_nodes` output. Each VM picks
-its Proxmox node with `proxmox_node`.
+are only visible to their own node, and the VM network sits on a bridge with
+a different name on each node.
+Both settings live in the `proxmox_nodes` map of `vm_template`, which
+creates the templates and hands the map to `k8s_cluster` through its
+`proxmox_nodes` output, and each VM picks its Proxmox node with
+`proxmox_node`.
 
 The second node shows that a key does not have to match the Proxmox node
 name. Its key is `myOtherServer` and `proxmox_node_name = "server02"` holds
@@ -23,8 +24,8 @@ creates them on `server02`.
 
 Run `proxmox_setup.sh` first so that every node has the `tfprov` SSH user.
 To add a worker on `server02` later, add it to `nodes` with
-`proxmox_node = "myOtherServer"` and apply again. Terraform leaves the existing
-VMs alone.
+`proxmox_node = "myOtherServer"` and apply again, which leaves the existing
+VMs untouched.
 
 ## Usage
 
