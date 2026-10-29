@@ -1,7 +1,16 @@
 locals {
+  # With a single Proxmox node, VMs that do not name one go there.
+  node_hosts = {
+    for key, value in var.nodes : key => value.proxmox_node != null ? value.proxmox_node : one(keys(var.proxmox_nodes))
+  }
+
+  # proxmox_nodes keys are names for use in this config; Proxmox sees proxmox_node_name.
+  proxmox_node_names = { for key, host in var.proxmox_nodes : key => coalesce(host.proxmox_node_name, key) }
+
   nodes_normalized = {
     for key, value in var.nodes : key => {
       vmid            = value.vmid
+      proxmox_node    = local.proxmox_node_names[local.node_hosts[key]]
       hostname        = var.cluster_name != "" ? "${var.cluster_name}-${key}" : key
       user            = coalesce(value.user, var.vm_user)
       password        = coalesce(value.password, var.vm_password)
@@ -12,6 +21,12 @@ locals {
       ip              = value.ip
       tags            = distinct(concat(var.tags, ["storage"], var.cluster_name != "" ? [var.cluster_name] : []))
       on_boot         = true
+
+      template_vm_id         = var.proxmox_nodes[local.node_hosts[key]].template_vm_id
+      template_node          = local.proxmox_node_names[coalesce(var.proxmox_nodes[local.node_hosts[key]].template_node, local.node_hosts[key])]
+      network_bridge         = var.proxmox_nodes[local.node_hosts[key]].network_bridge
+      datastore_id           = var.proxmox_nodes[local.node_hosts[key]].datastore_id
+      cloudinit_datastore_id = var.proxmox_nodes[local.node_hosts[key]].cloudinit_datastore_id
     }
   }
 

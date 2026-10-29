@@ -16,7 +16,7 @@ resource "proxmox_virtual_environment_vm" "node" {
   clone {
     vm_id        = each.value.template_vm_id
     node_name    = each.value.template_node
-    datastore_id = var.clone_datastore_id
+    datastore_id = each.value.datastore_id
     full         = true
     retries      = 3
   }
@@ -31,13 +31,13 @@ resource "proxmox_virtual_environment_vm" "node" {
   }
 
   efi_disk {
-    datastore_id = var.clone_datastore_id
+    datastore_id = each.value.datastore_id
     file_format  = "raw"
     type         = "4m"
   }
 
   disk {
-    datastore_id = var.clone_datastore_id
+    datastore_id = each.value.datastore_id
     interface    = "scsi0"
     iothread     = true
     discard      = "on"
@@ -45,7 +45,7 @@ resource "proxmox_virtual_environment_vm" "node" {
   }
 
   initialization {
-    datastore_id = var.cloudinit_datastore_id
+    datastore_id = each.value.cloudinit_datastore_id
     upgrade      = false
 
     ip_config {

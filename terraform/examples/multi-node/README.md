@@ -1,6 +1,7 @@
 # Multiple Proxmox nodes
 
-Spreads a k3s cluster across the two nodes of a Proxmox cluster:
+This example spreads a k3s cluster across the two nodes of a Proxmox
+cluster, as the table shows.
 
 | VM | Proxmox node | Template | Bridge |
 | --- | --- | --- | --- |
@@ -9,13 +10,15 @@ Spreads a k3s cluster across the two nodes of a Proxmox cluster:
 | worker2 (`10.0.0.12`) | `server02` | 9002 | `vmbr0` |
 
 Each Proxmox node gets its own template, because templates on `local-lvm`
-are only visible to their node, and `templates` tells `k8s_cluster`
-which one to clone for each VM. The VM network sits on a bridge with a
-different name on each node, which `network_bridges` maps.
+are only visible to their own node. The VM network also sits on a bridge
+with a different name on each node. Both settings live in one
+`proxmox_nodes` local, which drives the `vm_template` modules and is passed
+to `k8s_cluster`, and each VM picks its Proxmox node with `proxmox_node`.
 
-Run `proxmox_setup.sh` first so every node has the `tfprov` SSH user.
-To add a worker on `server02` later, add it to `nodes` and apply again;
-the existing VMs are left alone.
+Run `proxmox_setup.sh` first so that every node has the `tfprov` SSH user.
+To add a worker on `server02` later, add it to `nodes` with
+`proxmox_node = "server02"` and apply again. Terraform leaves the existing
+VMs alone.
 
 ## Usage
 
@@ -33,7 +36,7 @@ Run `terraform destroy` when you are done.
 
 | Name | Version |
 | ---- | ------- |
-| terraform | >= 1.4.0 |
+| terraform | >= 1.9.0 |
 | proxmox | 0.118.1 |
 
 ## Modules

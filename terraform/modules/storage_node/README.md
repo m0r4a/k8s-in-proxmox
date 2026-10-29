@@ -1,40 +1,45 @@
 # storage_node
 
-Terraform module that clones a cloud-init template into one or more
-long-lived storage VMs on Proxmox VE, with the `bpg/proxmox` provider, and
-writes their Ansible inventory fragment. The Ansible `storage` role turns
-them into SeaweedFS nodes that hold the cluster's PVC data.
+This Terraform module clones a cloud-init template into one or more
+long-lived storage VMs on Proxmox VE, using the `bpg/proxmox` provider, and
+writes their Ansible inventory fragment. The Ansible `storage` role then
+turns them into SeaweedFS nodes that hold the PVC data of the cluster.
 
-Storage nodes are not members of the Kubernetes cluster. They are meant to
-outlive it.
+Storage nodes are not members of the Kubernetes cluster, and they are meant
+to outlive it.
 
 ## Features
 
-- A second SCSI disk (`scsi1`) per VM for data, which the `storage` role
-  formats, mounts at `/mnt/data` and hands to SeaweedFS
-- `prevent_destroy = true` on the VMs, so even a destroy of the storage root
-  itself is refused
-- Writes `inventory.d/20-storage.ini` with self-contained connection vars,
-  so storage can be configured without the cluster fragment
-- CPU, memory and disk changes applied in place, without recreating the VM
+- Each VM gets a second SCSI disk (`scsi1`) for data, which the `storage`
+  role formats, mounts at `/mnt/data` and hands to SeaweedFS.
+- The VMs have `prevent_destroy = true`, so Terraform refuses to destroy them
+  even from the storage root.
+- The module writes `inventory.d/20-storage.ini` with its own connection
+  variables, so you can configure storage without the cluster fragment.
+- CPU, memory and disk changes apply in place without recreating the VM,
+  and moving a VM to another Proxmox node live-migrates it.
+- The module places VMs across a Proxmox cluster with the same
+  `proxmox_nodes` map as [`k8s_cluster`](../k8s_cluster#proxmox-nodes).
 
 ## Usage
 
-Run it from its own root and state (`terraform/storage/`), separate from the
-cluster root, so a cluster `terraform destroy` never reaches it:
+Run the module from its own root and state (`terraform/storage/`), separate
+from the cluster root, so that a `terraform destroy` of the cluster never
+reaches it.
 
 ```hcl
 module "storage_node" {
   source = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/storage_node?ref=main"
 
-  proxmox_node         = "server01"
-  template_vm_id       = 9001
   vm_user              = "mora"
   vm_password          = var.vm_password
   ssh_public_key       = "~/.ssh/id_ed25519.pub"
   ssh_private_key_path = "~/.ssh/id_ed25519"
-  network_bridge       = "vmbr1"
   network_gateway      = "10.0.0.253"
+
+  proxmox_nodes = {
+    server01 = { template_vm_id = 9001, network_bridge = "vmbr1" }
+  }
 
   ansible = {
     enabled = true
@@ -49,35 +54,36 @@ module "storage_node" {
 
 ## Examples
 
-- [storage](../../examples/storage)
+The [storage](../../examples/storage) example creates one storage VM.
 
 ## Prerequisites
 
 The module does not create the template. Create it first with the
-[`vm_template`](../vm_template) module (usually from the cluster root) or
-with `proxmox_setup.sh --create-template`, then pass its ID as
-`template_vm_id`.
+[`vm_template`](../vm_template) module, usually from the cluster root, or
+with `proxmox_setup.sh --create-template`. Then set its ID as the
+`template_vm_id` of its node in `proxmox_nodes`.
 
 ## Nodes
 
-The `nodes` map key is the VM hostname, or its suffix when `cluster_name` is
-set.
+The key of the `nodes` map is the VM hostname, or its suffix when
+`cluster_name` is set.
 
 | Field | Required | Description |
 | --- | --- | --- |
-| `vmid` | yes | Proxmox VM ID, unique in the Proxmox cluster |
-| `ip` | yes | Static IPv4 address; the prefix length is `network_cidr` |
-| `storage_disk_gb` | no | Data disk size in GB. Defaults to `storage_disk_gb` |
-| `cores` | no | CPU cores. Defaults to `cores` |
-| `memory` | no | Memory in MB. Defaults to `memory` |
-| `disk_size_gb` | no | Boot disk size in GB. Defaults to `disk_size_gb` |
-| `user` | no | Cloud-init user. Defaults to `vm_user` |
-| `password` | no | Cloud-init password. Defaults to `vm_password` |
+| `vmid` | yes | The Proxmox VM ID must be unique in the Proxmox cluster. |
+| `ip` | yes | The static IPv4 address uses `network_cidr` as its prefix length. |
+| `proxmox_node` | no | The VM runs on this key of `proxmox_nodes`, which is required when the map has more than one entry. |
+| `storage_disk_gb` | no | The data disk size in GB defaults to `storage_disk_gb`. |
+| `cores` | no | The number of CPU cores defaults to `cores`. |
+| `memory` | no | The memory in MB defaults to `memory`. |
+| `disk_size_gb` | no | The boot disk size in GB defaults to `disk_size_gb`. |
+| `user` | no | The cloud-init user defaults to `vm_user`. |
+| `password` | no | The cloud-init password defaults to `vm_password`. |
 
 ## Ansible integration
 
-With `ansible.enabled = true` the module writes
-`<ansible.path>/inventory.d/20-storage.ini`:
+With `ansible.enabled = true`, the module writes
+`<ansible.path>/inventory.d/20-storage.ini`, which looks like this.
 
 ```ini
 [storage]
@@ -89,27 +95,26 @@ cluster_admin_user=mora
 cluster_admin_home=/home/mora
 ```
 
-SeaweedFS settings (image, ports, firewall) live in
-`ansible/inventory.d/group_vars/storage.yml`.
+The SeaweedFS settings, such as the image, the ports and the firewall, live
+in `ansible/inventory.d/group_vars/storage.yml`.
 
 ## Tearing it down
 
 `prevent_destroy` makes Terraform refuse to destroy the VMs. For an
-intentional teardown, comment it out in `main.tf` of this module, then run
-`terraform destroy` in the storage root. The data disk goes with the VM.
+intentional teardown, comment it out in the `main.tf` of this module and
+then run `terraform destroy` in the storage root. The data disk is deleted
+together with the VM.
 
 ## Limitations
 
-- Every storage VM goes on `proxmox_node`; there is no per-VM Proxmox node
-  yet, unlike `k8s_cluster`.
-- One network bridge for all storage VMs.
+The module only supports static IPv4 addresses.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 | ---- | ------- |
-| terraform | >= 1.4.0 |
+| terraform | >= 1.9.0 |
 | local | >= 2.0.0 |
 | null | >= 3.0.0 |
 | proxmox | 0.118.1 |
@@ -135,22 +140,18 @@ intentional teardown, comment it out in `main.tf` of this module, then run
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | network_gateway | IPv4 gateway for the VMs. | `string` | n/a | yes |
-| nodes | Storage nodes. The map key is the hostname suffix (or full hostname when cluster_name is empty). Every node gets an extra data disk sized by storage_disk_gb. | ```map(object({ vmid = number ip = string user = optional(string) password = optional(string) cores = optional(number) memory = optional(number) disk_size_gb = optional(number) storage_disk_gb = optional(number) }))``` | n/a | yes |
-| proxmox_node | Proxmox node where the storage VMs will be created. | `string` | n/a | yes |
+| nodes | Storage nodes. The map key is the hostname suffix (or full hostname when cluster_name is empty). Every node gets an extra data disk sized by storage_disk_gb. proxmox_node is required when proxmox_nodes has more than one entry. | ```map(object({ vmid = number ip = string proxmox_node = optional(string) user = optional(string) password = optional(string) cores = optional(number) memory = optional(number) disk_size_gb = optional(number) storage_disk_gb = optional(number) }))``` | n/a | yes |
+| proxmox_nodes | Proxmox nodes the VMs can run on. The key is the name nodes[*].proxmox_node and template_node refer to, and the Proxmox node name unless proxmox_node_name is set. template_vm_id is the template cloned for VMs there; set template_node when it lives on another entry (shared storage). | ```map(object({ proxmox_node_name = optional(string) template_vm_id = number template_node = optional(string) network_bridge = optional(string, "vmbr0") datastore_id = optional(string, "local-lvm") cloudinit_datastore_id = optional(string, "local-lvm") }))``` | n/a | yes |
 | ssh_private_key_path | Path to the SSH private key Ansible uses to reach the nodes. | `string` | n/a | yes |
 | ssh_public_key | SSH public key (raw or path to a .pub file) added to each VM. | `string` | n/a | yes |
-| template_vm_id | VM ID of an existing cloud-init template to clone. The storage root does not create the template; point this at a template made by the cluster root's vm_template module or by proxmox_setup.sh. | `number` | n/a | yes |
 | vm_password | Cloud-init password for vm_user. | `string` | n/a | yes |
 | vm_user | Default cloud-init username for the VMs. Overridable per node. | `string` | n/a | yes |
 | ansible | Ansible integration. When enabled, writes inventory.d/20-storage.ini to the ansible directory. | ```object({ enabled = bool path = optional(string, "") })``` | ```{ "enabled": false, "path": "" }``` | no |
-| clone_datastore_id | Datastore where cloned VM disks are placed. | `string` | `"local-lvm"` | no |
-| cloudinit_datastore_id | Datastore used for the per-VM cloud-init drive. | `string` | `"local-lvm"` | no |
 | cluster_name | Prefix prepended to every VM hostname. Empty keeps the map key as the hostname. | `string` | `""` | no |
 | cores | Default CPU cores per VM. Overridable per node. | `number` | `2` | no |
 | disk_size_gb | Default boot disk size in GB. Overridable per node. | `number` | `20` | no |
 | dns_servers | DNS servers written to each VM via cloud-init. | `list(string)` | ```[ "1.1.1.1", "8.8.8.8" ]``` | no |
 | memory | Default memory (MB) per VM. Overridable per node. | `number` | `4096` | no |
-| network_bridge | Proxmox bridge the VM network devices attach to. | `string` | `"vmbr0"` | no |
 | network_cidr | Network prefix length used when assigning static IPs. | `number` | `24` | no |
 | storage_disk_gb | Default size in GB of the extra data disk (scsi1) attached to each storage VM. Overridable per node. | `number` | `50` | no |
 | tags | Tags applied to every VM in addition to the storage/cluster tags. | `list(string)` | `[]` | no |

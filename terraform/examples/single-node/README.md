@@ -1,11 +1,12 @@
 # Single Proxmox node
 
-Creates a Rocky Linux 10 template (9001) on `server01` and a k3s cluster
-on the same node: one control plane (`10.0.0.10`) and two workers
-(`10.0.0.11`, `10.0.0.12`), all on `vmbr0`. Terraform writes
-`ansible/inventory.d/10-cluster.ini` and Ansible installs k3s on the VMs.
+This example creates a Rocky Linux 10 template (9001) on `server01` and a
+k3s cluster on the same node. The cluster has one control plane
+(`10.0.0.10`) and two workers (`10.0.0.11` and `10.0.0.12`), all on
+`vmbr0`. Terraform writes `ansible/inventory.d/10-cluster.ini`, and Ansible
+installs k3s on the VMs.
 
-Edit `main.tf` for your node name, bridge, VM IDs and IPs.
+Edit `main.tf` to match your node name, bridge, VM IDs and IPs.
 
 ## Usage
 
@@ -23,7 +24,7 @@ Run `terraform destroy` when you are done.
 
 | Name | Version |
 | ---- | ------- |
-| terraform | >= 1.4.0 |
+| terraform | >= 1.9.0 |
 | proxmox | 0.118.1 |
 
 ## Modules

@@ -1,11 +1,17 @@
 locals {
-  node_hosts = { for key, value in var.nodes : key => coalesce(value.proxmox_node, var.proxmox_node) }
+  # With a single Proxmox node, VMs that do not name one go there.
+  node_hosts = {
+    for key, value in var.nodes : key => value.proxmox_node != null ? value.proxmox_node : one(keys(var.proxmox_nodes))
+  }
+
+  # proxmox_nodes keys are names for use in this config; Proxmox sees proxmox_node_name.
+  proxmox_node_names = { for key, host in var.proxmox_nodes : key => coalesce(host.proxmox_node_name, key) }
 
   nodes_normalized = {
     for key, value in var.nodes : key => {
       vmid         = value.vmid
       role         = value.role
-      proxmox_node = local.node_hosts[key]
+      proxmox_node = local.proxmox_node_names[local.node_hosts[key]]
       hostname     = var.cluster_name != "" ? "${var.cluster_name}-${key}" : key
       user         = coalesce(value.user, var.vm_user)
       password     = coalesce(value.password, var.vm_password)
@@ -16,11 +22,11 @@ locals {
       tags         = distinct(concat(var.tags, [var.distribution, value.role], var.cluster_name != "" ? [var.cluster_name] : []))
       on_boot      = true
 
-      # Template local to the VM's Proxmox node when listed in var.templates,
-      # otherwise template_vm_id on var.proxmox_node (needs shared storage).
-      template_vm_id = lookup(var.templates, local.node_hosts[key], var.template_vm_id)
-      template_node  = contains(keys(var.templates), local.node_hosts[key]) ? local.node_hosts[key] : var.proxmox_node
-      network_bridge = lookup(var.network_bridges, local.node_hosts[key], var.network_bridge)
+      template_vm_id         = var.proxmox_nodes[local.node_hosts[key]].template_vm_id
+      template_node          = local.proxmox_node_names[coalesce(var.proxmox_nodes[local.node_hosts[key]].template_node, local.node_hosts[key])]
+      network_bridge         = var.proxmox_nodes[local.node_hosts[key]].network_bridge
+      datastore_id           = var.proxmox_nodes[local.node_hosts[key]].datastore_id
+      cloudinit_datastore_id = var.proxmox_nodes[local.node_hosts[key]].cloudinit_datastore_id
     }
   }
 

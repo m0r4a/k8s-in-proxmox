@@ -2,10 +2,11 @@
 # local storage are only visible to their own node) and VMs placed per node.
 
 locals {
-  # Proxmox node => template VM ID (unique across the Proxmox cluster).
+  # Everything that differs between Proxmox nodes. Template VM IDs must be
+  # unique across the Proxmox cluster.
   proxmox_nodes = {
-    server01 = 9001
-    server02 = 9002
+    server01 = { template_vm_id = 9001, network_bridge = "vmbr1" }
+    server02 = { template_vm_id = 9002, network_bridge = "vmbr0" }
   }
 }
 
@@ -13,8 +14,9 @@ module "vm_template" {
   for_each = local.proxmox_nodes
   source   = "../../modules/vm_template"
 
-  proxmox_node    = each.key
-  template_vm_id  = each.value
+  proxmox_node    = lookup(each.value, "proxmox_node_name", each.key)
+  template_vm_id  = each.value.template_vm_id
+  network_bridge  = each.value.network_bridge
   vm_user         = var.vm_user
   ssh_public_keys = [trimspace(file(pathexpand(var.ssh_public_key)))]
 }
@@ -23,18 +25,17 @@ module "k8s_cluster" {
   source = "../../modules/k8s_cluster"
 
   distribution         = "k3s"
-  proxmox_node         = "server01"
-  template_vm_id       = module.vm_template["server01"].template_vm_id
-  templates            = { for node, t in module.vm_template : node => t.template_vm_id }
   vm_user              = var.vm_user
   vm_password          = var.vm_password
   ssh_public_key       = var.ssh_public_key
   ssh_private_key_path = var.ssh_private_key_path
   network_gateway      = var.network_gateway
 
-  # The VM network is vmbr1 on server01 but vmbr0 on server02.
-  network_bridge  = "vmbr1"
-  network_bridges = { server02 = "vmbr0" }
+  # Taking the template IDs from the module outputs makes the VMs wait for
+  # their templates.
+  proxmox_nodes = {
+    for name, t in module.vm_template : name => merge(local.proxmox_nodes[name], { template_vm_id = t.template_vm_id })
+  }
 
   ansible = {
     enabled = true
@@ -42,8 +43,8 @@ module "k8s_cluster" {
   }
 
   nodes = {
-    control-plane = { vmid = 201, role = "control-plane", ip = "10.0.0.10", cores = 2, memory = 3072 }
-    worker1       = { vmid = 202, role = "worker", ip = "10.0.0.11" }
+    control-plane = { vmid = 201, role = "control-plane", ip = "10.0.0.10", proxmox_node = "server01", cores = 2, memory = 3072 }
+    worker1       = { vmid = 202, role = "worker", ip = "10.0.0.11", proxmox_node = "server01" }
     worker2       = { vmid = 203, role = "worker", ip = "10.0.0.12", proxmox_node = "server02" }
   }
 }

@@ -13,14 +13,16 @@ module "k8s_cluster" {
   source = "../../modules/k8s_cluster"
 
   distribution         = "k3s"
-  proxmox_node         = "server01"
-  template_vm_id       = module.vm_template.template_vm_id
   vm_user              = var.vm_user
   vm_password          = var.vm_password
   ssh_public_key       = var.ssh_public_key
   ssh_private_key_path = var.ssh_private_key_path
-  network_bridge       = "vmbr0"
   network_gateway      = var.network_gateway
+
+  # A single Proxmox node, so the VMs below do not need to name it.
+  proxmox_nodes = {
+    server01 = { template_vm_id = module.vm_template.template_vm_id, network_bridge = "vmbr0" }
+  }
 
   # Writes ../../../ansible/inventory.d/10-cluster.ini for site.yml.
   ansible = {

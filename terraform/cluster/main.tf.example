@@ -1,59 +1,51 @@
-# Template: either create one with the vm_template module or use an existing
-# template ID (e.g. 9000 from proxmox_setup.sh). Uncomment one of the two
-# blocks below.
+# Templates: either create one per Proxmox node with the vm_template module or
+# use existing ones (e.g. from proxmox_setup.sh). Uncomment one of the options
+# below. var.proxmox_nodes (terraform.tfvars) lists the Proxmox nodes and the
+# template VM ID for each; IDs must be unique across the Proxmox cluster.
 
-# Option 1: create the template with the vm_template module.
+# Option 1: create the templates with the vm_template module.
 module "vm_template" {
-  source = "../modules/vm_template"
+  for_each = var.proxmox_nodes
+  source   = "../modules/vm_template"
 
-  proxmox_node    = var.proxmox_node
-  template_vm_id  = var.template_vm_id
+  proxmox_node    = coalesce(each.value.proxmox_node_name, each.key)
+  template_vm_id  = each.value.template_vm_id
+  network_bridge  = each.value.network_bridge
   vm_user         = var.vm_user
   ssh_public_keys = [trimspace(file(pathexpand(var.ssh_public_key)))]
 }
 
-# Option 1a: create the template using an existing image already on Proxmox.
+# Option 1a: create the templates from an image already on each Proxmox node.
 # module "vm_template" {
-#   source = "../modules/vm_template"
+#   for_each = var.proxmox_nodes
+#   source   = "../modules/vm_template"
 #
-#   proxmox_node    = var.proxmox_node
-#   template_vm_id  = var.template_vm_id
+#   proxmox_node    = coalesce(each.value.proxmox_node_name, each.key)
+#   template_vm_id  = each.value.template_vm_id
+#   network_bridge  = each.value.network_bridge
 #   vm_user         = var.vm_user
 #   image_url       = null
 #   image_file_id   = "local:import/rocky10-cloudinit.qcow2"
 #   ssh_public_keys = [trimspace(file(pathexpand(var.ssh_public_key)))]
 # }
 
-# Option 1b: several Proxmox nodes, one template per node (template VM IDs
-# must be unique across the Proxmox cluster). Pass them to k8s_cluster as
-# `templates = { for node, t in module.vm_template : node => t.template_vm_id }`
-# and set `proxmox_node` on each entry in `nodes`. If a node's VM bridge has
-# another name, add `network_bridges = { server02 = "vmbr0" }`.
-# module "vm_template" {
-#   for_each = { server01 = 9001, server02 = 9002 }
-#   source   = "../modules/vm_template"
-#
-#   proxmox_node    = each.key
-#   template_vm_id  = each.value
-#   vm_user         = var.vm_user
-#   ssh_public_keys = [trimspace(file(pathexpand(var.ssh_public_key)))]
-# }
-
-# Option 2: use an existing template (e.g. created by proxmox_setup.sh).
-# Skip the vm_template module and pass the ID directly to k8s_cluster.
+# Option 2: use existing templates (e.g. created by proxmox_setup.sh). Skip
+# the vm_template module and pass `proxmox_nodes = var.proxmox_nodes` below.
 
 module "k8s_cluster" {
   source = "../modules/k8s_cluster"
 
   distribution         = "k3s" # or "kubeadm"
-  proxmox_node         = var.proxmox_node
-  template_vm_id       = module.vm_template.template_vm_id
   vm_user              = var.vm_user
   vm_password          = var.vm_password
   ssh_public_key       = var.ssh_public_key
   ssh_private_key_path = var.ssh_private_key_path
-  network_bridge       = var.network_bridge
   network_gateway      = var.network_gateway
+
+  # Template IDs taken from the module outputs so the VMs wait for them.
+  proxmox_nodes = {
+    for name, t in module.vm_template : name => merge(var.proxmox_nodes[name], { template_vm_id = t.template_vm_id })
+  }
 
   # Writes ansible/inventory.d/10-cluster.ini. Storage nodes are provisioned
   # separately by the storage root (see ../storage) and contribute their own
@@ -84,7 +76,7 @@ module "k8s_cluster" {
       ip     = "10.0.0.12"
       memory = 4096
       cores  = 2
-      # proxmox_node = "server02"  # defaults to proxmox_node above
+      # proxmox_node = "server02"  # required once proxmox_nodes has more than one entry
     }
   }
 }

@@ -1,17 +1,17 @@
 # Existing templates
 
-Uses templates made by the setup script instead of the `vm_template`
-module:
+This example uses templates made by the setup script instead of the
+`vm_template` module, so create them first.
 
 ```bash
 ./proxmox_setup.sh --host 192.168.1.2 --ssh-key ~/.ssh/id_ed25519 --create-template
 ```
 
-The script creates one template per node starting at `--template-id`
-(default 9000), in node-name order, and prints the map to pass as
-`templates`. This example assumes `server01 = 9000` and
-`server02 = 9001`, and creates a `lab-` prefixed cluster with a worker
-on each node.
+The script creates one template per node in node-name order, starting at
+`--template-id` (9000 by default), and prints a `proxmox_nodes` block to
+paste. This example assumes `server01 = 9000` and `server02 = 9001`, and it
+creates a cluster whose hostnames start with `lab-`, with a worker on each
+node.
 
 ## Usage
 
@@ -29,7 +29,7 @@ Run `terraform destroy` when you are done.
 
 | Name | Version |
 | ---- | ------- |
-| terraform | >= 1.4.0 |
+| terraform | >= 1.9.0 |
 | proxmox | 0.118.1 |
 
 ## Modules

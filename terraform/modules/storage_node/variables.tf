@@ -1,42 +1,42 @@
-variable "proxmox_node" {
-  description = "Proxmox node where the storage VMs will be created."
-  type        = string
+variable "proxmox_nodes" {
+  description = "Proxmox nodes the VMs can run on. The key is the name nodes[*].proxmox_node and template_node refer to, and the Proxmox node name unless proxmox_node_name is set. template_vm_id is the template cloned for VMs there; set template_node when it lives on another entry (shared storage)."
+  type = map(object({
+    proxmox_node_name      = optional(string)
+    template_vm_id         = number
+    template_node          = optional(string)
+    network_bridge         = optional(string, "vmbr0")
+    datastore_id           = optional(string, "local-lvm")
+    cloudinit_datastore_id = optional(string, "local-lvm")
+  }))
 
   validation {
-    condition     = length(var.proxmox_node) > 0
-    error_message = "proxmox_node must not be empty."
+    condition     = length(var.proxmox_nodes) > 0
+    error_message = "At least one Proxmox node is required."
   }
-}
-
-variable "template_vm_id" {
-  description = "VM ID of an existing cloud-init template to clone. The storage root does not create the template; point this at a template made by the cluster root's vm_template module or by proxmox_setup.sh."
-  type        = number
 
   validation {
-    condition     = var.template_vm_id > 0 && var.template_vm_id < 999999999
-    error_message = "template_vm_id must be a positive integer."
+    condition     = alltrue([for h in values(var.proxmox_nodes) : length(h.proxmox_node_name) > 0 if h.proxmox_node_name != null])
+    error_message = "proxmox_node_name must not be empty."
   }
-}
-
-variable "clone_datastore_id" {
-  description = "Datastore where cloned VM disks are placed."
-  type        = string
-  default     = "local-lvm"
 
   validation {
-    condition     = length(var.clone_datastore_id) > 0
-    error_message = "clone_datastore_id must not be empty."
+    condition     = alltrue([for h in values(var.proxmox_nodes) : h.template_vm_id > 0 && h.template_vm_id < 999999999])
+    error_message = "All template VM IDs must be positive integers."
   }
-}
-
-variable "cloudinit_datastore_id" {
-  description = "Datastore used for the per-VM cloud-init drive."
-  type        = string
-  default     = "local-lvm"
 
   validation {
-    condition     = length(var.cloudinit_datastore_id) > 0
-    error_message = "cloudinit_datastore_id must not be empty."
+    condition     = alltrue([for h in values(var.proxmox_nodes) : contains(keys(var.proxmox_nodes), h.template_node) if h.template_node != null])
+    error_message = "template_node must be one of the keys of proxmox_nodes."
+  }
+
+  validation {
+    condition     = alltrue([for h in values(var.proxmox_nodes) : can(regex("^vmbr[0-9]+$", h.network_bridge))])
+    error_message = "All network_bridge values must be valid Proxmox bridge names (e.g. vmbr0, vmbr1)."
+  }
+
+  validation {
+    condition     = alltrue([for h in values(var.proxmox_nodes) : length(h.datastore_id) > 0 && length(h.cloudinit_datastore_id) > 0])
+    error_message = "Datastore IDs must not be empty."
   }
 }
 
@@ -93,10 +93,11 @@ variable "ssh_private_key_path" {
 }
 
 variable "nodes" {
-  description = "Storage nodes. The map key is the hostname suffix (or full hostname when cluster_name is empty). Every node gets an extra data disk sized by storage_disk_gb."
+  description = "Storage nodes. The map key is the hostname suffix (or full hostname when cluster_name is empty). Every node gets an extra data disk sized by storage_disk_gb. proxmox_node is required when proxmox_nodes has more than one entry."
   type = map(object({
     vmid            = number
     ip              = string
+    proxmox_node    = optional(string)
     user            = optional(string)
     password        = optional(string)
     cores           = optional(number)
@@ -108,6 +109,16 @@ variable "nodes" {
   validation {
     condition     = length(var.nodes) > 0
     error_message = "At least one storage node is required."
+  }
+
+  validation {
+    condition     = length(var.proxmox_nodes) == 1 || alltrue([for n in var.nodes : n.proxmox_node != null])
+    error_message = "With more than one entry in proxmox_nodes, every node must set proxmox_node."
+  }
+
+  validation {
+    condition     = alltrue([for n in var.nodes : contains(keys(var.proxmox_nodes), n.proxmox_node) if n.proxmox_node != null])
+    error_message = "Every node's proxmox_node must be one of the keys of proxmox_nodes."
   }
 
   validation {
@@ -197,17 +208,6 @@ variable "storage_disk_gb" {
   validation {
     condition     = var.storage_disk_gb >= 10
     error_message = "storage_disk_gb must be at least 10 GB."
-  }
-}
-
-variable "network_bridge" {
-  description = "Proxmox bridge the VM network devices attach to."
-  type        = string
-  default     = "vmbr0"
-
-  validation {
-    condition     = can(regex("^vmbr[0-9]+$", var.network_bridge))
-    error_message = "network_bridge must be a valid Proxmox bridge name (e.g. vmbr0, vmbr1)."
   }
 }
 

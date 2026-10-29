@@ -1,14 +1,14 @@
 # Storage node
 
-Creates one long-lived SeaweedFS VM (`storage1`, `10.0.0.30`) with a
-200 GB data disk, and writes `ansible/inventory.d/20-storage.ini`.
+This example creates one long-lived SeaweedFS VM (`storage1` at
+`10.0.0.30`) with a 200 GB data disk and writes
+`ansible/inventory.d/20-storage.ini`.
 
-It clones an existing template (9001), so create that first, from the
-cluster root's `vm_template` module or with `proxmox_setup.sh
---create-template`. Keep this in its own root and state, away from the
-cluster, so destroying the cluster never touches storage. The VM has
-`prevent_destroy`, so `terraform destroy` here is refused until you
-comment it out in the module.
+The VM clones an existing template (9001), so create that template first
+with the `vm_template` module of the cluster root or with
+`proxmox_setup.sh --create-template`. Keep this example in its own root and
+state, away from the cluster, so that destroying the cluster never touches
+storage.
 
 ## Usage
 
@@ -19,14 +19,16 @@ terraform apply
 cd ../../../ansible && ansible-playbook -i inventory.d/ site.yml
 ```
 
-Run `terraform destroy` when you are done.
+The VM has `prevent_destroy`, so Terraform refuses `terraform destroy` here.
+To remove the VM, comment out `prevent_destroy` in the `storage_node`
+module first and then run `terraform destroy`.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 | ---- | ------- |
-| terraform | >= 1.4.0 |
+| terraform | >= 1.9.0 |
 | proxmox | 0.118.1 |
 
 ## Modules

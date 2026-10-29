@@ -723,10 +723,12 @@ fi
 
 if [[ "$SKIP_TEMPLATE" == false ]]; then
 	echo
-	info "Templates (pass to k8s_cluster as templates = { ... }):"
+	info "Templates (add network_bridge where the VM network is not on vmbr0):"
+	echo "proxmox_nodes = {"
 	for NODE_NAME in "${TARGET_NODES[@]}"; do
-		echo "  ${NODE_NAME} = $(node_template_id)"
+		echo "  ${NODE_NAME} = { template_vm_id = $(node_template_id) }"
 	done
+	echo "}"
 fi
 
 if [[ -n "${TOKEN_OUTPUT}" ]]; then

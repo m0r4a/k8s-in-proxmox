@@ -3,7 +3,8 @@ resource "proxmox_virtual_environment_vm" "storage" {
 
   vm_id         = each.value.vmid
   name          = each.value.hostname
-  node_name     = var.proxmox_node
+  node_name     = each.value.proxmox_node
+  migrate       = true
   tags          = each.value.tags
   on_boot       = each.value.on_boot
   started       = true
@@ -13,8 +14,9 @@ resource "proxmox_virtual_environment_vm" "storage" {
   boot_order    = ["scsi0"]
 
   clone {
-    vm_id        = var.template_vm_id
-    datastore_id = var.clone_datastore_id
+    vm_id        = each.value.template_vm_id
+    node_name    = each.value.template_node
+    datastore_id = each.value.datastore_id
     full         = true
     retries      = 3
   }
@@ -29,13 +31,13 @@ resource "proxmox_virtual_environment_vm" "storage" {
   }
 
   efi_disk {
-    datastore_id = var.clone_datastore_id
+    datastore_id = each.value.datastore_id
     file_format  = "raw"
     type         = "4m"
   }
 
   disk {
-    datastore_id = var.clone_datastore_id
+    datastore_id = each.value.datastore_id
     interface    = "scsi0"
     iothread     = true
     discard      = "on"
@@ -43,7 +45,7 @@ resource "proxmox_virtual_environment_vm" "storage" {
   }
 
   disk {
-    datastore_id = var.clone_datastore_id
+    datastore_id = each.value.datastore_id
     interface    = "scsi1"
     iothread     = true
     discard      = "on"
@@ -51,7 +53,7 @@ resource "proxmox_virtual_environment_vm" "storage" {
   }
 
   initialization {
-    datastore_id = var.cloudinit_datastore_id
+    datastore_id = each.value.cloudinit_datastore_id
     upgrade      = false
 
     ip_config {
@@ -73,7 +75,7 @@ resource "proxmox_virtual_environment_vm" "storage" {
   }
 
   network_device {
-    bridge = var.network_bridge
+    bridge = each.value.network_bridge
     model  = "virtio"
   }
 

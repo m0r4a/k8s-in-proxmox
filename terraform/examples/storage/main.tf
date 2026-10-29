@@ -4,14 +4,15 @@
 module "storage_node" {
   source = "../../modules/storage_node"
 
-  proxmox_node         = "server01"
-  template_vm_id       = 9001
   vm_user              = var.vm_user
   vm_password          = var.vm_password
   ssh_public_key       = var.ssh_public_key
   ssh_private_key_path = var.ssh_private_key_path
-  network_bridge       = "vmbr0"
   network_gateway      = var.network_gateway
+
+  proxmox_nodes = {
+    server01 = { template_vm_id = 9001, network_bridge = "vmbr0" }
+  }
 
   # Writes ../../../ansible/inventory.d/20-storage.ini.
   ansible = {

@@ -46,24 +46,20 @@ variable "proxmox_ssh_private_key_path" {
   }
 }
 
-variable "proxmox_node" {
-  description = "Proxmox node where VMs will be created."
-  type        = string
+variable "proxmox_nodes" {
+  description = "Proxmox nodes the VMs can run on, keyed by node name, with the template to clone there and optionally the real node name, bridge and datastores. See the k8s_cluster module README."
+  type = map(object({
+    proxmox_node_name      = optional(string)
+    template_vm_id         = number
+    template_node          = optional(string)
+    network_bridge         = optional(string, "vmbr0")
+    datastore_id           = optional(string, "local-lvm")
+    cloudinit_datastore_id = optional(string, "local-lvm")
+  }))
 
   validation {
-    condition     = length(var.proxmox_node) > 0
-    error_message = "proxmox_node must not be empty."
-  }
-}
-
-variable "template_vm_id" {
-  description = "VM ID for the template created by the vm_template module. Ignored when using an existing template."
-  type        = number
-  default     = 9001
-
-  validation {
-    condition     = var.template_vm_id > 0 && var.template_vm_id < 999999999
-    error_message = "template_vm_id must be a positive integer."
+    condition     = length(var.proxmox_nodes) > 0
+    error_message = "At least one Proxmox node is required."
   }
 }
 
@@ -105,17 +101,6 @@ variable "ssh_private_key_path" {
   validation {
     condition     = can(file(pathexpand(var.ssh_private_key_path)))
     error_message = "SSH private key file does not exist at the specified path."
-  }
-}
-
-variable "network_bridge" {
-  description = "Proxmox bridge the VM network devices attach to."
-  type        = string
-  default     = "vmbr0"
-
-  validation {
-    condition     = can(regex("^vmbr[0-9]+$", var.network_bridge))
-    error_message = "network_bridge must be a valid Proxmox bridge name (e.g. vmbr0, vmbr1)."
   }
 }
 

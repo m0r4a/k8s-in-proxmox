@@ -1,12 +1,14 @@
 # Ansible
 
-Configures VMs into a Kubernetes cluster with Cilium networking and
-SeaweedFS storage. Designed to work with the Terraform-generated inventory
-but can run standalone with a manual inventory.
+These playbooks turn the VMs into a Kubernetes cluster with Cilium
+networking and SeaweedFS storage. They are designed for the inventory that
+Terraform generates, but they also run standalone with an inventory you
+write by hand.
 
-The inventory's `k8s_distribution` picks the Kubernetes roles. Only `k3s`
-has roles so far. `none` runs `common` and `k8s_prep` and installs no
-Kubernetes; any other value fails the first play of `site.yml`.
+The `k8s_distribution` value in the inventory picks the Kubernetes roles,
+and only `k3s` has roles so far. With `none`, the playbook runs `common` and
+`k8s_prep` and installs no Kubernetes. Any other value makes the first play
+of `site.yml` fail.
 
 ## Usage
 
@@ -22,83 +24,87 @@ ansible-playbook -i inventory.d/ site.yml
 
 ## Design
 
-Ansible reads `inventory.d/` as a directory of inventory fragments.
-The examples live in `inventory.examples/` because Ansible would load any
-file left in `inventory.d/`, including `*.example` ones.
-Each Terraform root writes its own fragment: the cluster root writes
-`10-cluster.ini` (control_plane, worker), the storage root writes
-`20-storage.ini` (storage). Ansible reads the whole directory and merges
-the groups. Fragments hold infrastructure facts only (IPs, users, SSH key
-path, distribution, control plane IP, cluster CIDRs). Ansible configuration
-lives in each role's `defaults/main.yml`, so the playbook needs no extra
-files. This lets ansible run without terraform by writing manual fragments.
+Ansible reads `inventory.d/` as a directory of inventory fragments. The
+examples live in `inventory.examples/` because Ansible would load any file
+left in `inventory.d/`, including the `*.example` ones.
 
-The storage fragment carries its own `[storage:vars]` (SSH key, admin
-user), so storage can be configured even when the cluster fragment is
-absent.
+Each Terraform root writes its own fragment. The cluster root writes
+`10-cluster.ini` with the `control_plane` and `worker` groups, and the
+storage root writes `20-storage.ini` with the `storage` group. Ansible reads
+the whole directory and merges the groups. The fragments only hold
+infrastructure facts (IPs, users, the SSH key path, the distribution, the
+control plane IP and the cluster CIDRs). Ansible configuration lives in the
+`defaults/main.yml` of each role, so the playbook needs no extra files, and
+Ansible can run without Terraform if you write the fragments by hand.
+
+The storage fragment carries its own `[storage:vars]` with the SSH key and
+the admin user, so you can configure storage even when the cluster fragment
+is absent.
 
 ## Roles
 
 | Role | Target | Purpose |
 | --- | --- | --- |
-| `common` | all | Package update, base packages, SSH hardening, sudo config, reboot |
-| `k8s_prep` | k8s_cluster (any distribution) | Swap off, kernel modules, sysctl |
-| `k3s_server` | control_plane | k3s server without kube-proxy, Cilium, Helm, Hubble |
-| `k3s_agent` | worker | k3s agent join |
-| `storage` | storage | Data disk, firewall, Docker, SeaweedFS |
+| `common` | all | It updates packages, installs base packages, hardens SSH, configures sudo and reboots. |
+| `k8s_prep` | k8s_cluster (any distribution) | It turns swap off and sets up kernel modules and sysctl. |
+| `k3s_server` | control_plane | It installs the k3s server without kube-proxy, together with Cilium, Helm and Hubble. |
+| `k3s_agent` | worker | It joins the node to the cluster as a k3s agent. |
+| `storage` | storage | It sets up the data disk, the firewall, Docker and SeaweedFS. |
 
 ## Role naming
 
-The terraform role string uses hyphens (`control-plane`, `worker`,
-`storage`). The ansible group names use underscores (`control_plane`,
-`worker`, `storage`). The inventory template maps between them.
+Terraform writes the node roles with hyphens (`control-plane` and `worker`),
+while the Ansible groups use underscores (`control_plane`, `worker` and
+`storage`). The inventory template maps one name to the other.
 
 ## Overrides
 
-Every setting has a default in its role's `defaults/main.yml`. Override
-them in `inventory.d/group_vars/` (gitignored); `inventory.examples/group_vars/`
-lists the common ones:
+Every setting has a default in the `defaults/main.yml` of its role. You
+override them in `inventory.d/group_vars/`, which is gitignored, and
+`inventory.examples/group_vars/` lists the common ones.
 
 | File | Purpose |
 | --- | --- |
-| `all.yml` | Versions, install URLs, Cilium values, reboot and SSH settings |
-| `storage.yml` | SeaweedFS ports, data dir, firewall |
+| `all.yml` | It sets versions, install URLs, the Cilium values, and the reboot and SSH settings. |
+| `storage.yml` | It sets the SeaweedFS ports, the data directory and the firewall. |
 
 Cilium gets `roles/k3s_server/files/cilium-values.yaml` unless you set
-`cilium_values_file` (a file on the controller) or `cilium_values_url`.
-Either way the control plane IP, API port and pod CIDR come from the
+`cilium_values_file` (a file on the controller) or `cilium_values_url`. In
+every case the control plane IP, the API port and the pod CIDR come from the
 inventory. k3s runs without kube-proxy (`--disable-kube-proxy`) and Cilium
 handles Services in its place, so your values must keep
 `kubeProxyReplacement: true`. Keep every `serviceMonitor.enabled` in them at
-`false` too: the ServiceMonitor CRD does not exist yet on a fresh cluster, so
-the install fails. Turn them on once Prometheus Operator is installed.
+`false` as well, because the ServiceMonitor CRD does not exist yet on a
+fresh cluster and the install would fail. You can turn them on once
+Prometheus Operator is installed.
 
 ## Inventory vars (generated by Terraform)
 
-The `10-cluster.ini` `[all:vars]` section provides infrastructure facts:
-`k8s_distribution`, `k8s_control_plane_ip`, `k8s_cluster_cidr`, `k8s_service_cidr`,
-`cluster_admin_user`, `cluster_admin_home`,
-`ansible_ssh_private_key_file`. The `20-storage.ini` `[storage:vars]`
-section repeats the connection facts the storage nodes need.
+The `[all:vars]` section of `10-cluster.ini` provides the infrastructure
+facts `k8s_distribution`, `k8s_control_plane_ip`, `k8s_cluster_cidr`,
+`k8s_service_cidr`, `cluster_admin_user`, `cluster_admin_home` and
+`ansible_ssh_private_key_file`. The `[storage:vars]` section of
+`20-storage.ini` repeats the connection facts that the storage nodes need.
 
 ## Reboots
 
-`common` updates every package and reboots the hosts automatically when
-anything changed, all at once. On a fresh deploy that is the first run.
-`allow_reboot_on_update: false` turns it off; then reboot by hand after a
-kernel update, because `kernel-modules-extra` only ships modules for the new
-kernel and `k8s_prep` and `storage` fail to load `br_netfilter` until the
-node runs it.
+`common` updates every package and reboots all hosts at once when anything
+changed, which on a fresh deploy happens in the first run. Setting
+`allow_reboot_on_update: false` turns this off. In that case you have to
+reboot by hand after a kernel update, because `kernel-modules-extra` only
+ships modules for the new kernel, and `k8s_prep` and `storage` fail to load
+`br_netfilter` until the node runs that kernel.
 
 ## Security
 
-VM SSH hardening (disable root, key-only auth) is applied by the
-`common` role. Controlled by `ssh_hardening_enabled: true` (default).
-Set to `false` in `inventory.d/group_vars/all.yml` to disable.
+The `common` role hardens SSH on the VMs by disabling root login and
+allowing only key authentication. `ssh_hardening_enabled` controls this and
+defaults to `true`, so set it to `false` in `inventory.d/group_vars/all.yml`
+if you want to disable it.
 
-Storage node firewall is optional. Set `seaweedfs_firewall_enabled:
-true` and `seaweedfs_allowed_cidr: "your-subnet/24"` in
-`inventory.d/group_vars/storage.yml` to restrict SeaweedFS ports to the cluster
-subnet.
+The firewall on the storage node is optional. To restrict the SeaweedFS
+ports to the cluster subnet, set `seaweedfs_firewall_enabled: true` and
+`seaweedfs_allowed_cidr: "your-subnet/24"` in
+`inventory.d/group_vars/storage.yml`.
 
-See [security.md](../security.md) for full documentation.
+[security.md](../security.md) has the full documentation.

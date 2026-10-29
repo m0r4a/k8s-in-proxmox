@@ -96,21 +96,20 @@ The bpg provider's `proxmox_virtual_environment_vm` updates `cpu.cores`
 and `memory.dedicated` in-place. With `reboot_after_update = true` it
 reboots the VM automatically. Disk size changes grow the disk live via
 `hotplug = "network,disk,usb"`. All VMs start with their Proxmox node
-(`on_boot = true`). Cluster VMs set `migrate = true`, so
+(`on_boot = true`). VMs set `migrate = true`, so
 changing a node's `proxmox_node` migrates the VM. None of these recreate
 the VM.
 
 ## Multiple Proxmox nodes
 
-Each entry in the `k8s_cluster` `nodes` map can set `proxmox_node`; it
-defaults to the module's `proxmox_node`. A template on local storage is only
-visible to its own node, so create one template per Proxmox node (each with
-a VM ID unique across the Proxmox cluster) and pass them to `k8s_cluster` as
-`templates`. A VM on a node missing from `templates` clones `template_vm_id`
-from the module's `proxmox_node`, which needs shared storage. Bridges are
-per node as well: `network_bridges` maps a Proxmox node to its bridge when
-it differs from `network_bridge`. The `storage_node` module still places
-every storage VM on a single `proxmox_node`.
+`k8s_cluster` and `storage_node` take a `proxmox_nodes` map with one entry
+per Proxmox node: the template to clone there (`template_vm_id`), and
+optionally its bridge, datastores, real node name (`proxmox_node_name`,
+defaulting to the key) and `template_node` when the template sits on another
+entry (shared storage). A template on local storage is only visible to its
+own node, so the usual setup is one template per Proxmox node, each with a VM
+ID unique across the Proxmox cluster. With one entry every VM goes there;
+with more, each entry in `nodes` sets `proxmox_node` to a key of the map.
 
 ## Template design
 
@@ -130,8 +129,8 @@ There are three ways to create it:
    commands on the Proxmox node. It is off by default; without the flag the
    script only creates the PVE role, user, token and the `tfprov` SSH user.
 
-The `k8s_cluster` module accepts `template_vm_id` (or one per Proxmox node
-through `templates`) and clones whatever template is at that ID. It does not
+The `k8s_cluster` module takes a template ID per Proxmox node through
+`proxmox_nodes` and clones whatever template is at that ID. It does not
 care how the template was created.
 
 ## VM configuration

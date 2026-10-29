@@ -6,20 +6,18 @@
 # Copy to main.tf and edit the node definitions:
 #   cp main.tf.example main.tf
 #
-# The template is NOT created here. Create it first with the cluster root's
-# vm_template module (or proxmox_setup.sh --create-template) and set
-# template_vm_id (var default 9001) to match.
+# The templates are NOT created here. Create them first with the cluster root's
+# vm_template module (or proxmox_setup.sh --create-template) and list them in
+# proxmox_nodes (terraform.tfvars).
 
 module "storage_node" {
   source = "../modules/storage_node"
 
-  proxmox_node         = var.proxmox_node
-  template_vm_id       = var.template_vm_id
+  proxmox_nodes        = var.proxmox_nodes
   vm_user              = var.vm_user
   vm_password          = var.vm_password
   ssh_public_key       = var.ssh_public_key
   ssh_private_key_path = var.ssh_private_key_path
-  network_bridge       = var.network_bridge
   network_gateway      = var.network_gateway
 
   # Writes ansible/inventory.d/20-storage.ini, read alongside the cluster
