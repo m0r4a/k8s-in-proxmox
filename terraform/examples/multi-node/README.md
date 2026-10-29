@@ -11,9 +11,10 @@ cluster, as the table shows.
 
 Each Proxmox node gets its own template, because templates on `local-lvm`
 are only visible to their own node. The VM network also sits on a bridge
-with a different name on each node. Both settings live in one
-`proxmox_nodes` local, which drives the `vm_template` modules and is passed
-to `k8s_cluster`, and each VM picks its Proxmox node with `proxmox_node`.
+with a different name on each node. Both settings live in the
+`proxmox_nodes` map of `vm_template`, which creates the templates and hands
+the map to `k8s_cluster` through its `proxmox_nodes` output. Each VM picks
+its Proxmox node with `proxmox_node`.
 
 The second node shows that a key does not have to match the Proxmox node
 name. Its key is `myOtherServer` and `proxmox_node_name = "server02"` holds

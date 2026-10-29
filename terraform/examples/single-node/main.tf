@@ -3,10 +3,12 @@
 module "vm_template" {
   source = "../../modules/vm_template"
 
-  proxmox_node    = "server01"
-  template_vm_id  = 9001
-  vm_user         = var.vm_user
-  ssh_public_keys = [trimspace(file(pathexpand(var.ssh_public_key)))]
+  vm_user        = var.vm_user
+  ssh_public_key = var.ssh_public_key
+
+  proxmox_nodes = {
+    server01 = { template_vm_id = 9001, network_bridge = "vmbr0" }
+  }
 }
 
 module "k8s_cluster" {
@@ -19,10 +21,9 @@ module "k8s_cluster" {
   ssh_private_key_path = var.ssh_private_key_path
   network_gateway      = var.network_gateway
 
-  # A single Proxmox node, so the VMs below do not need to name it.
-  proxmox_nodes = {
-    server01 = { template_vm_id = module.vm_template.template_vm_id, network_bridge = "vmbr0" }
-  }
+  # The same nodes as the templates, available once those exist. There is a
+  # single Proxmox node, so the VMs below do not need to name it.
+  proxmox_nodes = module.vm_template.proxmox_nodes
 
   # Writes ../../../ansible/inventory.d/10-cluster.ini for site.yml.
   ansible = {

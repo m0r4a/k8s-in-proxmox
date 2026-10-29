@@ -30,10 +30,12 @@ in the inventory.
 module "vm_template" {
   source = "github.com/m0r4a/k8s-in-proxmox//terraform/modules/vm_template?ref=main"
 
-  proxmox_node    = "server01"
-  template_vm_id  = 9001
-  vm_user         = "mora"
-  ssh_public_keys = [trimspace(file(pathexpand("~/.ssh/id_ed25519.pub")))]
+  vm_user        = "mora"
+  ssh_public_key = "~/.ssh/id_ed25519.pub"
+
+  proxmox_nodes = {
+    server01 = { template_vm_id = 9001, network_bridge = "vmbr1" }
+  }
 }
 
 module "k8s_cluster" {
@@ -46,9 +48,8 @@ module "k8s_cluster" {
   ssh_private_key_path = "~/.ssh/id_ed25519"
   network_gateway      = "10.0.0.253"
 
-  proxmox_nodes = {
-    server01 = { template_vm_id = module.vm_template.template_vm_id, network_bridge = "vmbr1" }
-  }
+  # The same map, available once the templates exist.
+  proxmox_nodes = module.vm_template.proxmox_nodes
 
   ansible = {
     enabled = true
@@ -158,10 +159,10 @@ nodes = {
 }
 ```
 
-The [multi-node example](../../examples/multi-node) creates the templates
-with `vm_template` from the same map it passes as `proxmox_nodes`, and it
-uses `depends_on = [module.vm_template]` so that the VMs wait for their
-templates.
+The [`vm_template`](../vm_template) module takes the same map and creates
+the templates. Its `proxmox_nodes` output returns the map once the templates
+exist, so passing that output here makes the VMs wait for them. The
+[multi-node example](../../examples/multi-node) does exactly that.
 
 ## Distribution
 

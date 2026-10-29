@@ -1,20 +1,53 @@
-variable "proxmox_node" {
-  description = "Proxmox node where the template will be created."
-  type        = string
+variable "proxmox_nodes" {
+  description = "Proxmox nodes to create a template on, in the same shape k8s_cluster and storage_node take. Each entry gets a template with its template_vm_id on its node, except entries with template_node set, which reuse the template of another entry (shared storage)."
+  type = map(object({
+    proxmox_node_name      = optional(string)
+    template_vm_id         = number
+    template_node          = optional(string)
+    network_bridge         = optional(string, "vmbr0")
+    datastore_id           = optional(string, "local-lvm")
+    cloudinit_datastore_id = optional(string, "local-lvm")
+  }))
 
   validation {
-    condition     = length(var.proxmox_node) > 0
-    error_message = "proxmox_node must not be empty."
+    condition     = length(var.proxmox_nodes) > 0
+    error_message = "At least one Proxmox node is required."
   }
-}
-
-variable "template_vm_id" {
-  description = "VM ID to assign to the template. Must be unique in the Proxmox cluster."
-  type        = number
 
   validation {
-    condition     = var.template_vm_id > 0 && var.template_vm_id < 999999999
-    error_message = "template_vm_id must be a positive integer."
+    condition     = alltrue([for h in values(var.proxmox_nodes) : length(h.proxmox_node_name) > 0 if h.proxmox_node_name != null])
+    error_message = "proxmox_node_name must not be empty."
+  }
+
+  validation {
+    condition     = alltrue([for h in values(var.proxmox_nodes) : h.template_vm_id > 0 && h.template_vm_id < 999999999])
+    error_message = "All template VM IDs must be positive integers."
+  }
+
+  validation {
+    condition     = alltrue([for h in values(var.proxmox_nodes) : contains(keys(var.proxmox_nodes), h.template_node) if h.template_node != null])
+    error_message = "template_node must be one of the keys of proxmox_nodes."
+  }
+
+  validation {
+    condition     = alltrue([for h in values(var.proxmox_nodes) : can(regex("^vmbr[0-9]+$", h.network_bridge))])
+    error_message = "All network_bridge values must be valid Proxmox bridge names (e.g. vmbr0, vmbr1)."
+  }
+
+  # The image and the snippet are named after template_name, so two templates
+  # on the same Proxmox node would overwrite each other's files.
+  validation {
+    condition = length(distinct([
+      for k, h in var.proxmox_nodes : coalesce(h.proxmox_node_name, k) if h.template_node == null
+    ])) == length([for h in values(var.proxmox_nodes) : h if h.template_node == null])
+    error_message = "Two entries that create a template point at the same Proxmox node. Give one of them template_node, or use a second module call with another template_name."
+  }
+
+  validation {
+    condition = length(distinct([
+      for h in values(var.proxmox_nodes) : h.template_vm_id if h.template_node == null
+    ])) == length([for h in values(var.proxmox_nodes) : h if h.template_node == null])
+    error_message = "Template VM IDs must be unique across the Proxmox cluster."
   }
 }
 
@@ -26,17 +59,6 @@ variable "template_name" {
   validation {
     condition     = can(regex("^[a-zA-Z0-9_-]+$", var.template_name))
     error_message = "template_name must contain only alphanumeric characters, hyphens, and underscores."
-  }
-}
-
-variable "datastore_id" {
-  description = "Datastore used for the template boot disk."
-  type        = string
-  default     = "local-lvm"
-
-  validation {
-    condition     = length(var.datastore_id) > 0
-    error_message = "datastore_id must not be empty."
   }
 }
 
@@ -105,30 +127,14 @@ variable "vm_user" {
   }
 }
 
-variable "ssh_public_keys" {
-  description = "List of SSH public keys injected into the template via cloud-init."
-  type        = list(string)
-  default     = []
-
-  validation {
-    condition     = alltrue([for k in var.ssh_public_keys : can(regex("^(ssh-rsa|ssh-ed25519|ssh-dss|ecdsa-sha2-nistp) ", k))])
-    error_message = "All ssh_public_keys entries must be valid SSH public keys (ssh-rsa, ssh-ed25519, etc.)."
-  }
-}
-
 variable "tags" {
   description = "Tags applied to the template VM."
   type        = list(string)
   default     = ["template", "rocky10"]
 }
 
-variable "network_bridge" {
-  description = "Proxmox bridge the template network device attaches to."
+variable "ssh_public_key" {
+  description = "SSH public key (raw or path to a .pub file) injected into the templates via cloud-init. Clones made by k8s_cluster and storage_node set their own."
   type        = string
-  default     = "vmbr0"
-
-  validation {
-    condition     = can(regex("^vmbr[0-9]+$", var.network_bridge))
-    error_message = "network_bridge must be a valid Proxmox bridge name (e.g. vmbr0, vmbr1)."
-  }
+  default     = null
 }

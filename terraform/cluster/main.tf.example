@@ -1,36 +1,24 @@
 # Templates: either create one per Proxmox node with the vm_template module or
-# use existing ones (e.g. from proxmox_setup.sh). Uncomment one of the options
-# below. var.proxmox_nodes (terraform.tfvars) lists the Proxmox nodes and the
-# template VM ID for each; IDs must be unique across the Proxmox cluster.
+# use existing ones (e.g. from proxmox_setup.sh). var.proxmox_nodes
+# (terraform.tfvars) lists the Proxmox nodes and the template VM ID for each;
+# IDs must be unique across the Proxmox cluster.
 
 # Option 1: create the templates with the vm_template module.
 module "vm_template" {
-  for_each = var.proxmox_nodes
-  source   = "../modules/vm_template"
+  source = "../modules/vm_template"
 
-  proxmox_node    = coalesce(each.value.proxmox_node_name, each.key)
-  template_vm_id  = each.value.template_vm_id
-  network_bridge  = each.value.network_bridge
-  vm_user         = var.vm_user
-  ssh_public_keys = [trimspace(file(pathexpand(var.ssh_public_key)))]
+  proxmox_nodes  = var.proxmox_nodes
+  vm_user        = var.vm_user
+  ssh_public_key = var.ssh_public_key
+
+  # Option 1a: import an image already on each Proxmox node instead of
+  # downloading it.
+  # image_url     = null
+  # image_file_id = "local:import/rocky10-cloudinit.qcow2"
 }
 
-# Option 1a: create the templates from an image already on each Proxmox node.
-# module "vm_template" {
-#   for_each = var.proxmox_nodes
-#   source   = "../modules/vm_template"
-#
-#   proxmox_node    = coalesce(each.value.proxmox_node_name, each.key)
-#   template_vm_id  = each.value.template_vm_id
-#   network_bridge  = each.value.network_bridge
-#   vm_user         = var.vm_user
-#   image_url       = null
-#   image_file_id   = "local:import/rocky10-cloudinit.qcow2"
-#   ssh_public_keys = [trimspace(file(pathexpand(var.ssh_public_key)))]
-# }
-
-# Option 2: use existing templates (e.g. created by proxmox_setup.sh). Skip
-# the vm_template module and drop the `depends_on` at the end of k8s_cluster.
+# Option 2: use existing templates (e.g. created by proxmox_setup.sh). Remove
+# the vm_template module and set `proxmox_nodes = var.proxmox_nodes` below.
 
 module "k8s_cluster" {
   source = "../modules/k8s_cluster"
@@ -42,7 +30,8 @@ module "k8s_cluster" {
   ssh_private_key_path = var.ssh_private_key_path
   network_gateway      = var.network_gateway
 
-  proxmox_nodes = var.proxmox_nodes
+  # The same nodes as the templates, available once those exist.
+  proxmox_nodes = module.vm_template.proxmox_nodes
 
   # Writes ansible/inventory.d/10-cluster.ini. Storage nodes are provisioned
   # separately by the storage root (see ../storage) and contribute their own
@@ -76,7 +65,4 @@ module "k8s_cluster" {
       # proxmox_node = "server02"  # required once proxmox_nodes has more than one entry
     }
   }
-
-  # The VMs clone the templates, so create those first.
-  depends_on = [module.vm_template]
 }
