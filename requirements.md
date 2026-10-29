@@ -2,7 +2,7 @@
 
 Provision a disposable Kubernetes cluster on Proxmox VE with persistent
 SeaweedFS storage for PVCs. The cluster is rebuilt with a single
-`terraform destroy` + `terraform apply` + a FluxCD target change.
+`terraform destroy` + `terraform apply` + a GitOps target change.
 
 ## Goals
 
@@ -21,7 +21,7 @@ SeaweedFS storage for PVCs. The cluster is rebuilt with a single
 4. Add a `storage` role for a VM that runs SeaweedFS in Docker to manage
    PVCs. This VM is outside the Kubernetes cluster.
 5. The end goal: the cluster is one `terraform destroy` away, and a new
-   cluster can be spun up by changing where FluxCD points and running
+   cluster can be spun up by changing where the GitOps tool points and running
    `terraform apply`.
 6. Keep the Terraform side independent of the Kubernetes distribution.
    `k8s_cluster` takes a `distribution` (`k3s`, `kubeadm` or `none`) and
@@ -59,7 +59,7 @@ SeaweedFS storage for PVCs. The cluster is rebuilt with a single
     └── roles/
         ├── common/             # Package update, base packages, reboot
         ├── k8s_prep/           # Swap, kernel modules, sysctl for any Kubernetes
-        ├── k3s_server/         # k3s server, Cilium, Helm, Flux, Hubble
+        ├── k3s_server/         # k3s server, Cilium, Helm, Hubble
         ├── k3s_agent/          # k3s agent join
         └── storage/            # Data disk, Docker, SeaweedFS
 ```
@@ -168,7 +168,7 @@ care how the template was created.
 1. `cd terraform/cluster && terraform destroy`. Storage lives in a separate
    root and state, so it is untouched.
 2. Edit node IPs, counts or `distribution` in `cluster/main.tf`, and point
-   FluxCD at the new cluster.
+   the GitOps tool at the new cluster.
 3. `cd terraform/cluster && terraform apply` brings the new cluster up.
 4. `cd ../../ansible && ansible-playbook -i inventory.d/ site.yml`
 

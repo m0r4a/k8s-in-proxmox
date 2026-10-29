@@ -35,11 +35,3 @@
     owner: "{{ cluster_admin_user }}"
     group: "{{ cluster_admin_user }}"
     mode: "0644"
-
-- name: Configure Flux completion in .bashrc
-  ansible.builtin.blockinfile:
-    path: "{{ cluster_admin_home }}/.bashrc"
-    marker: "# {mark} ANSIBLE MANAGED - flux"
-    block: |
-      . <(flux completion bash)
-    create: false

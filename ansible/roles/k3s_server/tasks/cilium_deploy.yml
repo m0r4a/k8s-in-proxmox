@@ -29,7 +29,6 @@
       --set k8sServiceHost={{ k8s_control_plane_ip }}
       --set k8sServicePort={{ k3s_api_port }}
       --set ipam.operator.clusterPoolIPv4PodCIDRList={{ '{' ~ k8s_cluster_cidr ~ '}' }}
-      --set hubble.metrics.serviceMonitor.enabled=false
       --wait
   become: true
   become_user: "{{ cluster_admin_user }}"

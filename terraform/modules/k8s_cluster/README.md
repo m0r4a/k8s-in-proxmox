@@ -140,7 +140,7 @@ it:
 
 | `distribution` | What `site.yml` does |
 | --- | --- |
-| `k3s` | Prepares the nodes and installs k3s (without kube-proxy), Cilium as CNI and Service proxy, Helm and Flux |
+| `k3s` | Prepares the nodes and installs k3s (without kube-proxy), Cilium as CNI and Service proxy, Helm and Hubble |
 | `none` | Only prepares the nodes (`common`, `k8s_prep`); no Kubernetes |
 | `kubeadm` | Fails in the first play on purpose: there are no kubeadm roles yet |
 

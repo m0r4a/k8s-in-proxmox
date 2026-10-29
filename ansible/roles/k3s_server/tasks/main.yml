@@ -28,10 +28,6 @@
   ansible.builtin.include_tasks: hubble_cli.yml
   tags: [k3s-server, hubble]
 
-- name: Install Flux CLI
-  ansible.builtin.include_tasks: flux_cli.yml
-  tags: [k3s-server, flux]
-
 - name: Configure shell environment
   ansible.builtin.include_tasks: shell_config.yml
   tags: [k3s-server, shell]

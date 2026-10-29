@@ -22,11 +22,9 @@ cilium_cli_stable_url: "https://raw.githubusercontent.com/cilium/cilium-cli/main
 hubble_cli_stable_url: "https://raw.githubusercontent.com/cilium/hubble/main/stable.txt"
 
 helm_install_script_url: "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
-flux_install_script_url: "https://fluxcd.io/install.sh"
 
 helm_binary: "/usr/local/bin/helm"
 cilium_cli_binary: "/usr/local/bin/cilium"
 hubble_cli_binary: "/usr/local/bin/hubble"
-flux_binary: "/usr/local/bin/flux"
 
 cli_install_dir: "/usr/local/bin"

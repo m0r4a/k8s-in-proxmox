@@ -99,7 +99,7 @@ cd ../../ansible
 ansible-playbook site.yml
 ```
 
-With `distribution = "k3s"`, Ansible installs k3s, Cilium, Helm, Flux and
+With `distribution = "k3s"`, Ansible installs k3s, Cilium, Helm and
 SeaweedFS. With `none` it only prepares the nodes (packages, SSH hardening,
 swap, kernel modules, sysctl) and leaves installing Kubernetes to you.
 There are no kubeadm roles yet, so with `kubeadm` the playbook stops at its
@@ -135,7 +135,7 @@ ansible/
   roles/
     common/                Package update, SSH hardening, sudo, reboot
     k8s_prep/              Swap, kernel modules, sysctl for any Kubernetes
-    k3s_server/            k3s server, Cilium (bundled values), Helm, Flux
+    k3s_server/            k3s server, Cilium (bundled values), Helm, Hubble
     k3s_agent/             k3s agent join
     storage/               Data disk, firewall, Docker, SeaweedFS
 ```
@@ -158,7 +158,7 @@ for d in modules/* examples/*; do terraform-docs -c .terraform-docs.yml "$d"; do
 | --- | --- | --- |
 | `common` | all nodes | Package update, SSH hardening, sudo, reboot |
 | `k8s_prep` | `k8s_cluster` (any distribution) | Swap off, kernel modules, sysctl |
-| `k3s_server` | control plane (k3s only) | k3s server, Cilium, Helm, Flux |
+| `k3s_server` | control plane (k3s only) | k3s server, Cilium, Helm, Hubble |
 | `k3s_agent` | workers (k3s only) | k3s agent join |
 | `storage` | storage nodes | Data disk, firewall, Docker, SeaweedFS |
 
@@ -179,21 +179,24 @@ and edit them.
 
 ## Using it from another repository
 
-The repo needs nothing from outside, so another repository can pin it as a
-git submodule and keep only its own inventory and overrides:
+Another repository only needs its own Terraform roots and inventory. It
+references the modules by a pinned git ref and runs the playbook from a clone
+of this repo checked out at the same ref:
 
 ```
 my-infra/
-  k8s-in-proxmox/            git submodule add https://github.com/m0r4a/k8s-in-proxmox.git
-  terraform/cluster/main.tf  source = "../../k8s-in-proxmox/terraform/modules/k8s_cluster"
-  ansible/
-    ansible.cfg              inventory = inventory.d
-    site.yml                 - ansible.builtin.import_playbook: ../k8s-in-proxmox/ansible/site.yml
-    inventory.d/group_vars/  overrides, e.g. cilium_values_file
+  terraform/cluster/main.tf  source = "git::https://github.com/m0r4a/k8s-in-proxmox.git//terraform/modules/k8s_cluster?ref=<tag>"
+  ansible/inventory.d/       fragments written by Terraform (ansible = { path = "../../ansible" })
+    group_vars/all.yml       overrides, e.g. cilium_values_file or cilium_values_url
 ```
 
-Pull the latest version with `git submodule update --remote k8s-in-proxmox`,
-or pin a tag with `git -C k8s-in-proxmox checkout <tag>`.
+```bash
+cd k8s-in-proxmox/ansible
+ansible-playbook -i ../../my-infra/ansible/inventory.d site.yml
+```
+
+`cilium_values_file` and `cilium_values_url` let the Cilium values live with
+the rest of that repository's cluster config instead of in this repo.
 
 ## Workflow
 
