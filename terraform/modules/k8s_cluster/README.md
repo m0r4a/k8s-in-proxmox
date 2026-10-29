@@ -159,7 +159,9 @@ nodes = {
 ```
 
 The [multi-node example](../../examples/multi-node) creates the templates
-with `vm_template` and passes them to the module through `proxmox_nodes`.
+with `vm_template` from the same map it passes as `proxmox_nodes`, and it
+uses `depends_on = [module.vm_template]` so that the VMs wait for their
+templates.
 
 ## Distribution
 

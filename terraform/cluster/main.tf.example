@@ -30,7 +30,7 @@ module "vm_template" {
 # }
 
 # Option 2: use existing templates (e.g. created by proxmox_setup.sh). Skip
-# the vm_template module and pass `proxmox_nodes = var.proxmox_nodes` below.
+# the vm_template module and drop the `depends_on` at the end of k8s_cluster.
 
 module "k8s_cluster" {
   source = "../modules/k8s_cluster"
@@ -42,10 +42,7 @@ module "k8s_cluster" {
   ssh_private_key_path = var.ssh_private_key_path
   network_gateway      = var.network_gateway
 
-  # Template IDs taken from the module outputs so the VMs wait for them.
-  proxmox_nodes = {
-    for name, t in module.vm_template : name => merge(var.proxmox_nodes[name], { template_vm_id = t.template_vm_id })
-  }
+  proxmox_nodes = var.proxmox_nodes
 
   # Writes ansible/inventory.d/10-cluster.ini. Storage nodes are provisioned
   # separately by the storage root (see ../storage) and contribute their own
@@ -79,4 +76,7 @@ module "k8s_cluster" {
       # proxmox_node = "server02"  # required once proxmox_nodes has more than one entry
     }
   }
+
+  # The VMs clone the templates, so create those first.
+  depends_on = [module.vm_template]
 }

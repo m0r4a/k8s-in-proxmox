@@ -53,10 +53,11 @@ module "vm_template" {
   ssh_public_keys = [trimspace(file(pathexpand("~/.ssh/id_ed25519.pub")))]
 }
 
-# k8s_cluster:
-#   proxmox_nodes = {
-#     for name, t in module.vm_template : name => merge(local.proxmox_nodes[name], { template_vm_id = t.template_vm_id })
-#   }
+module "k8s_cluster" {
+  # ...
+  proxmox_nodes = local.proxmox_nodes
+  depends_on    = [module.vm_template]
+}
 ```
 
 The [`k8s_cluster`](../k8s_cluster) and [`storage_node`](../storage_node)

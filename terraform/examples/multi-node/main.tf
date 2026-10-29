@@ -31,11 +31,7 @@ module "k8s_cluster" {
   ssh_private_key_path = var.ssh_private_key_path
   network_gateway      = var.network_gateway
 
-  # Taking the template IDs from the module outputs makes the VMs wait for
-  # their templates.
-  proxmox_nodes = {
-    for name, t in module.vm_template : name => merge(local.proxmox_nodes[name], { template_vm_id = t.template_vm_id })
-  }
+  proxmox_nodes = local.proxmox_nodes
 
   ansible = {
     enabled = true
@@ -47,4 +43,7 @@ module "k8s_cluster" {
     worker1       = { vmid = 202, role = "worker", ip = "10.0.0.11", proxmox_node = "server01" }
     worker2       = { vmid = 203, role = "worker", ip = "10.0.0.12", proxmox_node = "server02" }
   }
+
+  # The VMs clone the templates, so create those first.
+  depends_on = [module.vm_template]
 }
