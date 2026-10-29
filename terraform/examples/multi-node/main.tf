@@ -3,10 +3,11 @@
 
 locals {
   # Everything that differs between Proxmox nodes. Template VM IDs must be
-  # unique across the Proxmox cluster.
+  # unique across the Proxmox cluster. A key is the Proxmox node name unless
+  # proxmox_node_name says otherwise, as for myOtherServer.
   proxmox_nodes = {
-    server01 = { template_vm_id = 9001, network_bridge = "vmbr1" }
-    server02 = { template_vm_id = 9002, network_bridge = "vmbr0" }
+    server01      = { template_vm_id = 9001, network_bridge = "vmbr1" }
+    myOtherServer = { proxmox_node_name = "server02", template_vm_id = 9002, network_bridge = "vmbr0" }
   }
 }
 
@@ -41,7 +42,7 @@ module "k8s_cluster" {
   nodes = {
     control-plane = { vmid = 201, role = "control-plane", ip = "10.0.0.10", proxmox_node = "server01", cores = 2, memory = 3072 }
     worker1       = { vmid = 202, role = "worker", ip = "10.0.0.11", proxmox_node = "server01" }
-    worker2       = { vmid = 203, role = "worker", ip = "10.0.0.12", proxmox_node = "server02" }
+    worker2       = { vmid = 203, role = "worker", ip = "10.0.0.12", proxmox_node = "myOtherServer" }
   }
 
   # The VMs clone the templates, so create those first.
